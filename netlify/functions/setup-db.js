@@ -76,6 +76,19 @@ exports.handler = async (event, context) => {
     `).catch(() => {});
     results.push('Migration: Added trial_ends_at column to lf_users');
 
+    // Add is_admin column to lf_users (for admin system)
+    await pool.query(`
+      ALTER TABLE lf_users
+      ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false
+    `).catch(() => {});
+    results.push('Migration: Added is_admin column to lf_users');
+
+    // Set Ben as admin by email
+    await pool.query(`
+      UPDATE lf_users SET is_admin = true WHERE email = 'ben@justfeatured.com'
+    `).catch(() => {});
+    results.push('Migration: Set ben@justfeatured.com as admin');
+
     // Add updated_at column to lf_leads (for email scraping tracking)
     await pool.query(`
       ALTER TABLE lf_leads
