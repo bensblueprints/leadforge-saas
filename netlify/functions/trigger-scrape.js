@@ -15,7 +15,7 @@ const SERP_API_KEY = process.env.SERP_API_KEY;
 // n8n webhook URL on your NAS server
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://100.122.165.61:5678/webhook/leadforge-scrape';
 
-// Function to scrape real leads using Google Places API (New - v2)
+// Function to scrape real leads using Google Places API (Legacy - works with more API keys)
 async function scrapeWithGooglePlaces(industry, city, maxResults) {
   if (!GOOGLE_MAPS_API_KEY) {
     console.log('No GOOGLE_MAPS_API_KEY configured');
@@ -26,22 +26,10 @@ async function scrapeWithGooglePlaces(industry, city, maxResults) {
     const query = `${industry} in ${city}`;
     console.log(`Searching Google Places API for: "${query}"`);
 
-    // Step 1: Text Search using new Places API (v2)
-    const searchUrl = 'https://places.googleapis.com/v1/places:searchText';
+    // Use Legacy Places API (Text Search)
+    const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_MAPS_API_KEY}`;
 
-    const searchResponse = await fetch(searchUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount,places.googleMapsUri,places.addressComponents'
-      },
-      body: JSON.stringify({
-        textQuery: query,
-        maxResultCount: Math.min(maxResults || 20, 20), // API max is 20 per request
-        languageCode: 'en'
-      })
-    });
+    const searchResponse = await fetch(searchUrl);
 
     if (!searchResponse.ok) {
       const errorText = await searchResponse.text();
@@ -50,57 +38,63 @@ async function scrapeWithGooglePlaces(industry, city, maxResults) {
     }
 
     const searchData = await searchResponse.json();
-    console.log(`Google Places returned ${searchData.places?.length || 0} results`);
 
-    const places = searchData.places || [];
+    if (searchData.status !== 'OK' && searchData.status !== 'ZERO_RESULTS') {
+      console.error('Google Places API status:', searchData.status, searchData.error_message);
+      return null;
+    }
+
+    console.log(`Google Places returned ${searchData.results?.length || 0} results`);
+
+    const places = searchData.results || [];
     const leads = [];
 
-    // Step 2: Process each place (new API returns details in search response)
-    for (const place of places.slice(0, maxResults)) {
+    // Process each place and get details for phone numbers
+    for (const place of places.slice(0, maxResults || 20)) {
       try {
-        // Extract state from address components
-        let state = '';
-        if (place.addressComponents) {
-          const stateComponent = place.addressComponents.find(
-            c => c.types && c.types.includes('administrative_area_level_1')
-          );
-          if (stateComponent) {
-            state = stateComponent.shortText || stateComponent.longText || '';
+        // Get place details for phone number
+        let phone = '';
+        let website = '';
+
+        if (place.place_id) {
+          const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=formatted_phone_number,website&key=${GOOGLE_MAPS_API_KEY}`;
+          const detailsResponse = await fetch(detailsUrl);
+
+          if (detailsResponse.ok) {
+            const detailsData = await detailsResponse.json();
+            if (detailsData.result) {
+              phone = detailsData.result.formatted_phone_number || '';
+              website = detailsData.result.website || '';
+            }
           }
         }
 
-        // Fallback to extracting from formatted address
-        if (!state) {
-          state = extractState(place.formattedAddress || '');
-        }
-
         leads.push({
-          business_name: place.displayName?.text || 'Unknown Business',
-          phone: place.nationalPhoneNumber || place.internationalPhoneNumber || '',
+          business_name: place.name || 'Unknown Business',
+          phone: phone,
           email: '', // Google doesn't provide emails
-          address: place.formattedAddress || '',
+          address: place.formatted_address || '',
           city: city.split(',')[0].trim(),
-          state: state,
-          website: place.websiteUri || '',
+          state: extractState(place.formatted_address || ''),
+          website: website,
           rating: place.rating || 0,
-          reviews: place.userRatingCount || 0,
-          place_id: place.id || '',
-          google_maps_url: place.googleMapsUri || ''
+          reviews: place.user_ratings_total || 0,
+          place_id: place.place_id || ''
         });
       } catch (detailError) {
         console.error('Error processing place:', detailError.message);
-        // Still add basic info
+        // Still add basic info without details
         leads.push({
-          business_name: place.displayName?.text || 'Unknown Business',
+          business_name: place.name || 'Unknown Business',
           phone: '',
           email: '',
-          address: place.formattedAddress || '',
+          address: place.formatted_address || '',
           city: city.split(',')[0].trim(),
-          state: extractState(place.formattedAddress || ''),
+          state: extractState(place.formatted_address || ''),
           website: '',
           rating: place.rating || 0,
-          reviews: place.userRatingCount || 0,
-          place_id: place.id || ''
+          reviews: place.user_ratings_total || 0,
+          place_id: place.place_id || ''
         });
       }
     }
