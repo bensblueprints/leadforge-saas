@@ -20,7 +20,23 @@ function verifyToken(authHeader) {
   }
 }
 
-async function createGHLContact(apiKey, locationId, lead) {
+async function createGHLContact(apiKey, locationId, lead, pipelineId = null) {
+  const contactData = {
+    firstName: lead.business_name.split(' ')[0] || 'Business',
+    lastName: lead.business_name.split(' ').slice(1).join(' ') || 'Owner',
+    name: lead.business_name,
+    email: lead.email || undefined,
+    phone: lead.phone || undefined,
+    address1: lead.address || undefined,
+    city: lead.city || undefined,
+    state: lead.state || undefined,
+    companyName: lead.business_name,
+    website: lead.website || undefined,
+    source: 'LeadForge AI',
+    locationId: locationId,
+    tags: ['leadforge', lead.industry || 'general'].filter(Boolean)
+  };
+
   const response = await fetch('https://services.leadconnectorhq.com/contacts/', {
     method: 'POST',
     headers: {
@@ -28,26 +44,50 @@ async function createGHLContact(apiKey, locationId, lead) {
       'Content-Type': 'application/json',
       'Version': '2021-07-28'
     },
-    body: JSON.stringify({
-      firstName: lead.business_name.split(' ')[0] || 'Business',
-      lastName: lead.business_name.split(' ').slice(1).join(' ') || 'Owner',
-      name: lead.business_name,
-      email: lead.email || undefined,
-      phone: lead.phone || undefined,
-      address1: lead.address || undefined,
-      city: lead.city || undefined,
-      state: lead.state || undefined,
-      companyName: lead.business_name,
-      website: lead.website || undefined,
-      source: 'LeadForge AI',
-      locationId: locationId,
-      tags: ['leadforge', lead.industry || 'general'].filter(Boolean)
-    })
+    body: JSON.stringify(contactData)
   });
 
   if (!response.ok) {
     const error = await response.text();
     throw new Error(`GHL API error: ${error}`);
+  }
+
+  const contactResult = await response.json();
+  const contactId = contactResult.contact?.id || contactResult.id;
+
+  // If we have a pipeline ID, add the contact to the pipeline
+  if (pipelineId && contactId) {
+    try {
+      await addContactToPipeline(apiKey, contactId, pipelineId);
+    } catch (pipelineError) {
+      console.error('Failed to add contact to pipeline:', pipelineError.message);
+      // Continue even if pipeline assignment fails
+    }
+  }
+
+  return contactResult;
+}
+
+async function addContactToPipeline(apiKey, contactId, pipelineId) {
+  // Create an opportunity in the pipeline for this contact
+  const response = await fetch('https://services.leadconnectorhq.com/opportunities/', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Version': '2021-07-28'
+    },
+    body: JSON.stringify({
+      pipelineId: pipelineId,
+      contactId: contactId,
+      name: 'LeadForge Lead',
+      status: 'open'
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to add to pipeline: ${error}`);
   }
 
   return await response.json();
@@ -86,7 +126,7 @@ exports.handler = async (event, context) => {
 
     // Get user's GHL settings
     const settingsResult = await pool.query(
-      'SELECT ghl_api_key, ghl_location_id FROM lf_user_settings WHERE user_id = $1',
+      'SELECT ghl_api_key, ghl_location_id, ghl_pipeline_id, ghl_industry_pipelines FROM lf_user_settings WHERE user_id = $1',
       [decoded.userId]
     );
 
@@ -98,6 +138,16 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({ error: 'GHL API not configured. Please add your API key and Location ID in settings.' })
       };
+    }
+
+    // Parse industry pipelines
+    let industryPipelines = {};
+    try {
+      if (settings.ghl_industry_pipelines) {
+        industryPipelines = JSON.parse(settings.ghl_industry_pipelines);
+      }
+    } catch (e) {
+      console.error('Failed to parse industry pipelines:', e);
     }
 
     // Get leads to sync
@@ -135,10 +185,18 @@ exports.handler = async (event, context) => {
 
     for (const lead of leads) {
       try {
+        // Determine the pipeline ID: industry-specific or default
+        let pipelineId = settings.ghl_pipeline_id || null;
+
+        if (lead.industry && industryPipelines[lead.industry]) {
+          pipelineId = industryPipelines[lead.industry];
+        }
+
         const ghlContact = await createGHLContact(
           settings.ghl_api_key,
           settings.ghl_location_id,
-          lead
+          lead,
+          pipelineId
         );
 
         // Update lead as synced

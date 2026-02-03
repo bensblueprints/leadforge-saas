@@ -50,7 +50,7 @@ exports.handler = async (event, context) => {
 
   try {
     const result = await pool.query(
-      `SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id, resend_api_key, webhook_url
+      `SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id, ghl_industry_pipelines, resend_api_key, webhook_url
        FROM lf_user_settings WHERE user_id = $1`,
       [decoded.userId]
     );
@@ -63,6 +63,8 @@ exports.handler = async (event, context) => {
           ghl_api_key: null,
           ghl_location_id: null,
           ghl_auto_sync: false,
+          ghl_pipeline_id: null,
+          ghl_industry_pipelines: {},
           resend_api_key: null,
           webhook_url: null,
           hasGhlKey: false,
@@ -73,6 +75,15 @@ exports.handler = async (event, context) => {
 
     const settings = result.rows[0];
 
+    let industryPipelines = {};
+    try {
+      if (settings.ghl_industry_pipelines) {
+        industryPipelines = JSON.parse(settings.ghl_industry_pipelines);
+      }
+    } catch (e) {
+      console.error('Failed to parse industry pipelines:', e);
+    }
+
     return {
       statusCode: 200,
       headers,
@@ -81,6 +92,7 @@ exports.handler = async (event, context) => {
         ghl_location_id: settings.ghl_location_id,
         ghl_auto_sync: settings.ghl_auto_sync,
         ghl_pipeline_id: settings.ghl_pipeline_id,
+        ghl_industry_pipelines: industryPipelines,
         resend_api_key: settings.resend_api_key ? '••••••••' : null,
         webhook_url: settings.webhook_url,
         hasGhlKey: !!settings.ghl_api_key,

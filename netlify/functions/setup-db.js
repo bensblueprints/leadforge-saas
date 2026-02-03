@@ -62,6 +62,13 @@ exports.handler = async (event, context) => {
     `).catch(() => {});
     results.push('Migration: Added resend_api_key and webhook_url columns');
 
+    // Add ghl_industry_pipelines column for per-industry pipeline selection
+    await pool.query(`
+      ALTER TABLE lf_user_settings
+      ADD COLUMN IF NOT EXISTS ghl_industry_pipelines TEXT
+    `).catch(() => {});
+    results.push('Migration: Added ghl_industry_pipelines column');
+
     // Add trial_ends_at column to lf_users (migration for free trial feature)
     await pool.query(`
       ALTER TABLE lf_users

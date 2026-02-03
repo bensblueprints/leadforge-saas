@@ -878,6 +878,7 @@
       flex: 1;
       margin-left: 260px;
       padding: 32px 40px;
+      padding-top: 100px;
     }
 
     .dashboard-view {
@@ -891,9 +892,12 @@
 
     .page-header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       margin-bottom: 32px;
+      padding-top: 16px;
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
     .page-title {
@@ -1411,6 +1415,15 @@
       .main-content {
         margin-left: 0;
         padding: 24px;
+        padding-top: 100px;
+      }
+      .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+      }
+      .page-header > div:last-child {
+        flex-wrap: wrap;
       }
       .scrape-controls {
         grid-template-columns: 1fr;
@@ -1906,6 +1919,9 @@
               <button class="btn btn-secondary" onclick="exportAllLeadsToCsv()">
                 <span>&#x1F4E5;</span> Export All
               </button>
+              <button class="btn btn-secondary" onclick="scrapeAllEmails()" id="scrapeAllEmailsBtn">
+                <span>&#x1F4E7;</span> Scrape All Emails
+              </button>
               <button class="btn btn-primary" onclick="syncAllToGhl()">
                 <span>&#x1F504;</span> Sync All to GHL
               </button>
@@ -1988,6 +2004,21 @@
                       </select>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <div class="settings-section">
+                <div class="settings-section-title">Industry-Specific Pipelines</div>
+                <div class="settings-hint" style="margin-bottom: 16px;">Configure different pipelines for each industry. Leads will be routed to the appropriate pipeline when synced.</div>
+
+                <div id="industryPipelinesContainer">
+                  <!-- Industry pipeline rows will be added dynamically -->
+                </div>
+
+                <div style="margin-top: 16px;">
+                  <button class="btn btn-secondary btn-sm" onclick="addIndustryPipeline()">
+                    + Add Industry Pipeline
+                  </button>
                 </div>
               </div>
 
@@ -2212,9 +2243,19 @@
       ghlConfig: {
         apiKey: '',
         locationId: '',
-        autoSync: false
+        autoSync: false,
+        industryPipelines: {} // { industry: pipelineId }
       }
     };
+
+    // Common industries for pipeline mapping
+    const COMMON_INDUSTRIES = [
+      'Realtors', 'Real Estate Agents', 'Chiropractors', 'Plumbers',
+      'HVAC', 'Electricians', 'Roofers', 'Landscapers', 'Dentists',
+      'Lawyers', 'Accountants', 'Insurance Agents', 'Auto Dealers',
+      'Restaurants', 'Gyms', 'Salons', 'Contractors', 'Painters',
+      'Photographers', 'Wedding Planners', 'Pet Services', 'Cleaners'
+    ];
 
     const API_BASE = '/.netlify/functions';
 
@@ -2478,6 +2519,9 @@
             state.ghlConfig.autoSync = settings.ghl_auto_sync || false;
             state.ghlConfig.pipelineId = settings.ghl_pipeline_id || '';
 
+            // Load industry-specific pipelines (already parsed by backend)
+            state.ghlConfig.industryPipelines = settings.ghl_industry_pipelines || {};
+
             document.getElementById('ghlApiKey').value = '••••••••••••••••';
             document.getElementById('ghlLocationId').value = state.ghlConfig.locationId;
             document.getElementById('ghlAutoSync').checked = state.ghlConfig.autoSync;
@@ -2485,6 +2529,9 @@
               <span class="badge badge-success">Connected</span>
               <span style="color: var(--text-secondary); font-size: 14px;">Ready to sync leads</span>
             `;
+
+            // Render industry pipelines
+            renderIndustryPipelines();
           }
 
           // Resend Configuration
@@ -2679,6 +2726,75 @@
       }
     }
 
+    // Scrape all emails for leads that don't have them
+    async function scrapeAllEmails() {
+      const leadsWithoutEmail = state.leads.filter(lead => !lead.email && lead.website);
+
+      if (leadsWithoutEmail.length === 0) {
+        showToast('info', 'All leads with websites already have emails scraped');
+        return;
+      }
+
+      const btn = document.getElementById('scrapeAllEmailsBtn');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+
+      let scraped = 0;
+      let found = 0;
+      const total = leadsWithoutEmail.length;
+
+      showToast('info', `Starting to scrape ${total} leads for emails...`);
+
+      for (const lead of leadsWithoutEmail) {
+        scraped++;
+        btn.innerHTML = `<span>&#x23F3;</span> Scraping ${scraped}/${total}...`;
+
+        try {
+          const response = await fetch(`${API_BASE}/scrape-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${state.token}`
+            },
+            body: JSON.stringify({ leadId: lead.id })
+          });
+
+          const data = await response.json();
+
+          if (data.success && data.email) {
+            found++;
+            lead.email = data.email;
+
+            // Update the email cell
+            const emailCell = document.getElementById(`email-cell-${lead.id}`);
+            if (emailCell) {
+              emailCell.innerHTML = `<span style="color: var(--accent-tertiary);">${data.email}</span>`;
+            }
+
+            // Update the action cell to show Start Flow button
+            const actionCell = document.getElementById(`action-cell-${lead.id}`);
+            if (actionCell) {
+              actionCell.innerHTML = `
+                <button class="btn-mini btn-primary" onclick="startFlowForLead(${lead.id})">
+                  Start Flow
+                </button>
+              `;
+            }
+          }
+
+          // Small delay between requests to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          console.error(`Error scraping email for lead ${lead.id}:`, error);
+        }
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+
+      showToast('success', `Done! Found ${found} emails out of ${total} leads scraped.`);
+    }
+
     // Start flow for a lead (sync to GHL)
     async function startFlowForLead(leadId) {
       const actionCell = document.getElementById(`action-cell-${leadId}`);
@@ -2868,12 +2984,22 @@
         // Reload data to get actual results
         await loadUserData();
 
-        // Show current session results
-        state.currentResults = state.leads.filter(l =>
-          citiesToScrape.some(c => l.city && l.city.toLowerCase() === c.toLowerCase()) &&
-          l.industry === industry
-        );
+        // Show current session results - match by city (flexible matching) and industry
+        const normalizeCity = (city) => {
+          if (!city) return '';
+          return city.toLowerCase().split(',')[0].trim();
+        };
 
+        const scrapedCityNames = citiesToScrape.map(c => normalizeCity(c));
+
+        state.currentResults = state.leads.filter(l => {
+          const leadCity = normalizeCity(l.city);
+          const cityMatch = scrapedCityNames.some(c => leadCity.includes(c) || c.includes(leadCity));
+          const industryMatch = l.industry && l.industry.toLowerCase() === industry.toLowerCase();
+          return cityMatch && industryMatch;
+        });
+
+        console.log('Scrape results:', state.currentResults.length, 'leads found for', scrapedCityNames, industry);
         renderResults();
 
         document.getElementById('exportCsvBtn').disabled = state.currentResults.length === 0;
@@ -2960,25 +3086,27 @@
                 <th>Email</th>
                 <th>Phone</th>
                 <th>City</th>
-                <th>Status</th>
+                <th>Industry</th>
               </tr>
             </thead>
             <tbody>
               ${state.currentResults.map(lead => `
                 <tr>
-                  <td><strong>${lead.business_name}</strong></td>
-                  <td>${lead.email}</td>
-                  <td>${lead.phone}</td>
-                  <td>${lead.city}</td>
                   <td>
-                    <span class="badge ${lead.verified ? 'badge-success' : 'badge-warning'}">
-                      ${lead.verified ? '&#x2713; Verified' : '&#x26A0; Unverified'}
-                    </span>
+                    <strong>${lead.business_name}</strong>
+                    ${lead.website ? `<br><a href="${lead.website}" target="_blank" style="font-size: 11px; color: var(--accent-primary);">Visit Website</a>` : ''}
                   </td>
+                  <td>${lead.email ? `<span style="color: var(--accent-tertiary);">${lead.email}</span>` : '<span style="color: var(--text-muted);">-</span>'}</td>
+                  <td>${lead.phone || '-'}</td>
+                  <td>${lead.city || '-'}</td>
+                  <td><span class="badge badge-neutral">${lead.industry || '-'}</span></td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
+        </div>
+        <div style="margin-top: 16px; color: var(--text-secondary); font-size: 14px;">
+          Found ${state.currentResults.length} leads
         </div>
       `;
     }
@@ -3234,6 +3362,113 @@
 
         state.ghlConfig.autoSync = autoSync;
         showToast('success', 'Auto-sync setting saved!');
+      } catch (error) {
+        showToast('error', error.message);
+      }
+    }
+
+    // ===== INDUSTRY PIPELINE SETTINGS =====
+    function renderIndustryPipelines() {
+      const container = document.getElementById('industryPipelinesContainer');
+      if (!container) return;
+
+      const pipelines = state.ghlConfig.industryPipelines || {};
+      const industries = Object.keys(pipelines);
+
+      if (industries.length === 0) {
+        container.innerHTML = `
+          <div style="color: var(--text-muted); font-size: 14px; padding: 16px; background: var(--bg-elevated); border-radius: 8px;">
+            No industry-specific pipelines configured. Click "Add Industry Pipeline" to set up routing.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = industries.map((industry, index) => `
+        <div class="industry-pipeline-row" style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px; padding: 12px; background: var(--bg-elevated); border-radius: 8px;">
+          <div style="flex: 1;">
+            <select class="form-select" id="industry-select-${index}" onchange="updateIndustryPipeline(${index}, this.value, null)" style="width: 100%;">
+              <option value="">Select Industry...</option>
+              ${COMMON_INDUSTRIES.map(ind => `
+                <option value="${ind}" ${industry === ind ? 'selected' : ''}>${ind}</option>
+              `).join('')}
+              <option value="${industry}" ${!COMMON_INDUSTRIES.includes(industry) ? 'selected' : ''}>${!COMMON_INDUSTRIES.includes(industry) ? industry : ''}</option>
+            </select>
+          </div>
+          <div style="flex: 1;">
+            <input type="text" class="form-input" id="pipeline-input-${index}"
+              value="${pipelines[industry] || ''}"
+              placeholder="Pipeline ID"
+              onchange="updateIndustryPipeline(${index}, '${industry}', this.value)"
+              style="width: 100%;">
+          </div>
+          <button class="btn-mini btn-outline" onclick="removeIndustryPipeline('${industry}')" style="color: var(--accent-danger); border-color: var(--accent-danger);">
+            Remove
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function addIndustryPipeline() {
+      // Add a new empty entry
+      const pipelines = state.ghlConfig.industryPipelines || {};
+      const newKey = `New Industry ${Object.keys(pipelines).length + 1}`;
+      pipelines[newKey] = '';
+      state.ghlConfig.industryPipelines = pipelines;
+      renderIndustryPipelines();
+    }
+
+    function removeIndustryPipeline(industry) {
+      const pipelines = state.ghlConfig.industryPipelines || {};
+      delete pipelines[industry];
+      state.ghlConfig.industryPipelines = pipelines;
+      saveIndustryPipelines();
+      renderIndustryPipelines();
+    }
+
+    async function updateIndustryPipeline(index, industry, pipelineId) {
+      const pipelines = state.ghlConfig.industryPipelines || {};
+      const oldKeys = Object.keys(pipelines);
+      const oldKey = oldKeys[index];
+
+      if (industry && industry !== oldKey) {
+        // Industry name changed - rename key
+        const value = pipelineId !== null ? pipelineId : pipelines[oldKey];
+        delete pipelines[oldKey];
+        pipelines[industry] = value;
+      } else if (pipelineId !== null) {
+        // Pipeline ID changed
+        pipelines[industry || oldKey] = pipelineId;
+      }
+
+      state.ghlConfig.industryPipelines = pipelines;
+      await saveIndustryPipelines();
+    }
+
+    async function saveIndustryPipelines() {
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/update-settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({
+            ghlIndustryPipelines: JSON.stringify(state.ghlConfig.industryPipelines)
+          })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save');
+        }
+
+        showToast('success', 'Industry pipelines saved!');
       } catch (error) {
         showToast('error', error.message);
       }
