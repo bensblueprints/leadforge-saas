@@ -8,8 +8,177 @@ const pool = new Pool({
 
 const JWT_SECRET = process.env.JWT_SECRET || 'leadforge-secret-key-2024';
 
+// API Keys for real scraping
+const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+const SERP_API_KEY = process.env.SERP_API_KEY;
+
 // n8n webhook URL on your NAS server
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://100.122.165.61:5678/webhook/leadforge-scrape';
+
+// Function to scrape real leads using Google Places API (New - v2)
+async function scrapeWithGooglePlaces(industry, city, maxResults) {
+  if (!GOOGLE_MAPS_API_KEY) {
+    console.log('No GOOGLE_MAPS_API_KEY configured');
+    return null;
+  }
+
+  try {
+    const query = `${industry} in ${city}`;
+    console.log(`Searching Google Places API for: "${query}"`);
+
+    // Step 1: Text Search using new Places API (v2)
+    const searchUrl = 'https://places.googleapis.com/v1/places:searchText';
+
+    const searchResponse = await fetch(searchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.websiteUri,places.rating,places.userRatingCount,places.googleMapsUri,places.addressComponents'
+      },
+      body: JSON.stringify({
+        textQuery: query,
+        maxResultCount: Math.min(maxResults || 20, 20), // API max is 20 per request
+        languageCode: 'en'
+      })
+    });
+
+    if (!searchResponse.ok) {
+      const errorText = await searchResponse.text();
+      console.error('Google Places API error:', searchResponse.status, errorText);
+      return null;
+    }
+
+    const searchData = await searchResponse.json();
+    console.log(`Google Places returned ${searchData.places?.length || 0} results`);
+
+    const places = searchData.places || [];
+    const leads = [];
+
+    // Step 2: Process each place (new API returns details in search response)
+    for (const place of places.slice(0, maxResults)) {
+      try {
+        // Extract state from address components
+        let state = '';
+        if (place.addressComponents) {
+          const stateComponent = place.addressComponents.find(
+            c => c.types && c.types.includes('administrative_area_level_1')
+          );
+          if (stateComponent) {
+            state = stateComponent.shortText || stateComponent.longText || '';
+          }
+        }
+
+        // Fallback to extracting from formatted address
+        if (!state) {
+          state = extractState(place.formattedAddress || '');
+        }
+
+        leads.push({
+          business_name: place.displayName?.text || 'Unknown Business',
+          phone: place.nationalPhoneNumber || place.internationalPhoneNumber || '',
+          email: '', // Google doesn't provide emails
+          address: place.formattedAddress || '',
+          city: city.split(',')[0].trim(),
+          state: state,
+          website: place.websiteUri || '',
+          rating: place.rating || 0,
+          reviews: place.userRatingCount || 0,
+          place_id: place.id || '',
+          google_maps_url: place.googleMapsUri || ''
+        });
+      } catch (detailError) {
+        console.error('Error processing place:', detailError.message);
+        // Still add basic info
+        leads.push({
+          business_name: place.displayName?.text || 'Unknown Business',
+          phone: '',
+          email: '',
+          address: place.formattedAddress || '',
+          city: city.split(',')[0].trim(),
+          state: extractState(place.formattedAddress || ''),
+          website: '',
+          rating: place.rating || 0,
+          reviews: place.userRatingCount || 0,
+          place_id: place.id || ''
+        });
+      }
+    }
+
+    console.log(`Processed ${leads.length} leads from Google Places`);
+    return leads.length > 0 ? leads : null;
+  } catch (error) {
+    console.error('Google Places scrape error:', error.message);
+    return null;
+  }
+}
+
+// Function to scrape using SerpAPI (fallback)
+async function scrapeWithSerpAPI(industry, city, maxResults) {
+  if (!SERP_API_KEY) {
+    console.log('No SERP_API_KEY configured');
+    return null;
+  }
+
+  try {
+    const query = `${industry} in ${city}`;
+    const url = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(query)}&type=search&api_key=${SERP_API_KEY}`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error('SerpAPI error:', await response.text());
+      return null;
+    }
+
+    const data = await response.json();
+    const places = data.local_results || [];
+
+    return places.slice(0, maxResults).map(place => ({
+      business_name: place.title || 'Unknown Business',
+      phone: place.phone || '',
+      email: '',
+      address: place.address || '',
+      city: city.split(',')[0].trim(),
+      state: extractState(place.address || ''),
+      website: place.website || '',
+      rating: place.rating || 0,
+      reviews: place.reviews || 0,
+      place_id: place.place_id || ''
+    }));
+  } catch (error) {
+    console.error('SerpAPI scrape error:', error.message);
+    return null;
+  }
+}
+
+// Main function to scrape real leads (tries Google first, then SerpAPI)
+async function scrapeRealLeads(industry, city, maxResults) {
+  // Try Google Places API first
+  let leads = await scrapeWithGooglePlaces(industry, city, maxResults);
+  if (leads && leads.length > 0) {
+    console.log(`Got ${leads.length} leads from Google Places API`);
+    return leads;
+  }
+
+  // Fallback to SerpAPI
+  leads = await scrapeWithSerpAPI(industry, city, maxResults);
+  if (leads && leads.length > 0) {
+    console.log(`Got ${leads.length} leads from SerpAPI`);
+    return leads;
+  }
+
+  return null;
+}
+
+function extractState(address) {
+  const stateMatch = address.match(/,\s*([A-Z]{2})\s*\d{5}/);
+  return stateMatch ? stateMatch[1] : '';
+}
+
+// Sanitize string for email/URL generation
+function sanitizeForEmail(str) {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
 
 function verifyToken(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -149,37 +318,65 @@ exports.handler = async (event, context) => {
       console.error('n8n connection error:', n8nError.message);
     }
 
-    // If n8n failed, generate leads directly
+    // If n8n failed, try SerpAPI for real leads, then fallback to demo data
     let totalLeadsGenerated = 0;
+    let usedRealScraping = false;
+
     if (!n8nSuccess) {
-      console.log('Generating leads directly (n8n unavailable)');
+      console.log('n8n unavailable, trying SerpAPI for real leads...');
 
       for (const city of citiesToScrape) {
-        // Generate simulated leads for this city
-        const numLeads = Math.min(maxResults || 50, Math.floor(Math.random() * 20) + 10);
+        // Try to get real leads from SerpAPI
+        const realLeads = await scrapeRealLeads(industry, city, maxResults || 50);
 
-        for (let i = 0; i < numLeads; i++) {
-          const leadData = {
-            business_name: `${industry} Pro ${i + 1}`,
-            phone: `(${Math.floor(Math.random() * 900) + 100}) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
-            email: `contact${i + 1}@${industry.toLowerCase().replace(/\s+/g, '')}${city.toLowerCase().replace(/\s+/g, '')}.com`,
-            address: `${Math.floor(Math.random() * 9999) + 1} Business Ave`,
-            city: city,
-            state: 'US',
-            website: `https://www.${industry.toLowerCase().replace(/\s+/g, '')}${i + 1}.com`,
-            rating: (Math.random() * 2 + 3).toFixed(1),
-            reviews: Math.floor(Math.random() * 500) + 1
-          };
+        if (realLeads && realLeads.length > 0) {
+          usedRealScraping = true;
+          console.log(`Got ${realLeads.length} real leads for ${city}`);
 
-          try {
-            await pool.query(
-              `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-              [decoded.userId, leadData.business_name, leadData.phone, leadData.email, leadData.address, leadData.city, leadData.state, industry, leadData.website, leadData.rating, leadData.reviews]
-            );
-            totalLeadsGenerated++;
-          } catch (insertError) {
-            console.error('Failed to insert lead:', insertError.message);
+          for (const lead of realLeads) {
+            try {
+              await pool.query(
+                `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [decoded.userId, lead.business_name, lead.phone, lead.email, lead.address, lead.city, lead.state, industry, lead.website, lead.rating, lead.reviews]
+              );
+              totalLeadsGenerated++;
+            } catch (insertError) {
+              if (!insertError.message.includes('duplicate')) {
+                console.error('Failed to insert lead:', insertError.message);
+              }
+            }
+          }
+        } else {
+          // Fallback to demo data (clearly marked as demo)
+          console.log(`No SerpAPI key or API failed, generating demo leads for ${city}`);
+          const numLeads = Math.min(maxResults || 50, 15);
+          const sanitizedCity = sanitizeForEmail(city);
+          const sanitizedIndustry = sanitizeForEmail(industry);
+
+          for (let i = 0; i < numLeads; i++) {
+            const leadData = {
+              business_name: `[DEMO] ${industry} Business ${i + 1}`,
+              phone: `(555) ${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
+              email: `demo${i + 1}@example.com`,
+              address: `${Math.floor(Math.random() * 9999) + 1} Demo Street`,
+              city: city.split(',')[0].trim(),
+              state: city.includes(',') ? city.split(',')[1].trim() : 'US',
+              website: `https://demo-${sanitizedIndustry}-${i + 1}.example.com`,
+              rating: (Math.random() * 2 + 3).toFixed(1),
+              reviews: Math.floor(Math.random() * 100) + 1
+            };
+
+            try {
+              await pool.query(
+                `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [decoded.userId, leadData.business_name, leadData.phone, leadData.email, leadData.address, leadData.city, leadData.state, industry, leadData.website, leadData.rating, leadData.reviews]
+              );
+              totalLeadsGenerated++;
+            } catch (insertError) {
+              console.error('Failed to insert lead:', insertError.message);
+            }
           }
         }
 
@@ -188,7 +385,7 @@ exports.handler = async (event, context) => {
           `INSERT INTO lf_scraped_cities (user_id, city, industry, lead_count, scraped_at)
            VALUES ($1, $2, $3, $4, NOW())
            ON CONFLICT (user_id, city, industry) DO UPDATE SET lead_count = $4, scraped_at = NOW()`,
-          [decoded.userId, city, industry, numLeads]
+          [decoded.userId, city, industry, totalLeadsGenerated]
         );
       }
 
@@ -216,11 +413,14 @@ exports.handler = async (event, context) => {
         success: true,
         message: n8nSuccess
           ? `Scraping initiated for ${citiesToScrape.length} cities`
-          : `Generated ${totalLeadsGenerated} leads for ${citiesToScrape.length} cities`,
+          : usedRealScraping
+            ? `Scraped ${totalLeadsGenerated} real leads from ${citiesToScrape.length} cities`
+            : `Generated ${totalLeadsGenerated} demo leads for ${citiesToScrape.length} cities (Add SERP_API_KEY for real data)`,
         citiesToScrape: citiesToScrape.length,
         citiesSkipped: cities.length - citiesToScrape.length,
         cities: citiesToScrape,
         leadsGenerated: totalLeadsGenerated,
+        realData: usedRealScraping,
         jobId: `job_${Date.now()}`
       })
     };
