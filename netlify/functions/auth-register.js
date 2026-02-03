@@ -57,12 +57,16 @@ exports.handler = async (event, context) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Create user
+    // Calculate trial end date (3 days from now)
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 3);
+
+    // Create user with 3-day free trial (Basic plan features)
     const result = await pool.query(
-      `INSERT INTO lf_users (email, password_hash, name, company, plan, leads_limit)
-       VALUES ($1, $2, $3, $4, 'free', 50)
-       RETURNING id, email, name, company, plan, leads_used, leads_limit, created_at`,
-      [email.toLowerCase(), passwordHash, name || '', company || '']
+      `INSERT INTO lf_users (email, password_hash, name, company, plan, leads_limit, trial_ends_at)
+       VALUES ($1, $2, $3, $4, 'trial', 500, $5)
+       RETURNING id, email, name, company, plan, leads_used, leads_limit, trial_ends_at, created_at`,
+      [email.toLowerCase(), passwordHash, name || '', company || '', trialEnd]
     );
 
     const user = result.rows[0];
@@ -85,7 +89,7 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({
         success: true,
-        message: 'Account created successfully',
+        message: 'Account created successfully! You have a 3-day free trial with 500 leads.',
         token,
         user: {
           id: user.id,
@@ -94,7 +98,9 @@ exports.handler = async (event, context) => {
           company: user.company,
           plan: user.plan,
           leadsUsed: user.leads_used,
-          leadsLimit: user.leads_limit
+          leadsLimit: user.leads_limit,
+          trialEndsAt: user.trial_ends_at,
+          isTrialActive: true
         }
       })
     };

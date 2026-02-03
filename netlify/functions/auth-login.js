@@ -41,7 +41,7 @@ exports.handler = async (event, context) => {
 
     // Find user
     const result = await pool.query(
-      `SELECT id, email, password_hash, name, company, plan, leads_used, leads_limit, created_at
+      `SELECT id, email, password_hash, name, company, plan, leads_used, leads_limit, trial_ends_at, created_at
        FROM lf_users WHERE email = $1`,
       [email.toLowerCase()]
     );
@@ -83,12 +83,24 @@ exports.handler = async (event, context) => {
       { expiresIn: '7d' }
     );
 
+    // Check trial status
+    const isTrialActive = user.plan === 'trial' && user.trial_ends_at && new Date(user.trial_ends_at) > new Date();
+    const trialExpired = user.plan === 'trial' && user.trial_ends_at && new Date(user.trial_ends_at) <= new Date();
+
+    // Calculate days remaining in trial
+    let trialDaysRemaining = 0;
+    if (isTrialActive && user.trial_ends_at) {
+      const now = new Date();
+      const trialEnd = new Date(user.trial_ends_at);
+      trialDaysRemaining = Math.ceil((trialEnd - now) / (1000 * 60 * 60 * 24));
+    }
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        message: 'Login successful',
+        message: trialExpired ? 'Your free trial has expired. Please upgrade to continue.' : 'Login successful',
         token,
         user: {
           id: user.id,
@@ -97,7 +109,11 @@ exports.handler = async (event, context) => {
           company: user.company,
           plan: user.plan,
           leadsUsed: user.leads_used,
-          leadsLimit: user.leads_limit
+          leadsLimit: trialExpired ? 0 : user.leads_limit,
+          trialEndsAt: user.trial_ends_at,
+          isTrialActive,
+          trialExpired,
+          trialDaysRemaining
         },
         settings: {
           ghlApiKey: settings.ghl_api_key ? '********' + settings.ghl_api_key.slice(-4) : null,

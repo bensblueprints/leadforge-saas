@@ -8,10 +8,16 @@ const pool = new Pool({
 
 const AIRWALLEX_WEBHOOK_SECRET = process.env.AIRWALLEX_WEBHOOK_SECRET;
 
-// Plans configuration
+// Plans configuration - Updated pricing 2026
 const PLANS = {
-  professional: {
-    leads_limit: 5000
+  basic: {
+    leads_limit: 500
+  },
+  advanced: {
+    leads_limit: 2500
+  },
+  premium: {
+    leads_limit: 10000
   },
   enterprise: {
     leads_limit: -1 // unlimited

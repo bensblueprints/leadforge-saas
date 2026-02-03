@@ -62,6 +62,13 @@ exports.handler = async (event, context) => {
     `).catch(() => {});
     results.push('Migration: Added resend_api_key and webhook_url columns');
 
+    // Add trial_ends_at column to lf_users (migration for free trial feature)
+    await pool.query(`
+      ALTER TABLE lf_users
+      ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP
+    `).catch(() => {});
+    results.push('Migration: Added trial_ends_at column to lf_users');
+
     // Create leads table (no foreign keys)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS lf_leads (
