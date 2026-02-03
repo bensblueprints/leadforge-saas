@@ -514,8 +514,8 @@
 
     .pricing-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
       align-items: start;
     }
 
@@ -847,6 +847,15 @@
       flex: 1;
       margin-left: 260px;
       padding: 32px 40px;
+    }
+
+    .dashboard-view {
+      display: none;
+    }
+
+    .dashboard-view.active {
+      display: block;
+      animation: fadeIn 0.4s ease;
     }
 
     .page-header {
@@ -1491,41 +1500,58 @@
       </div>
       <div class="pricing-grid">
         <div class="pricing-card">
-          <div class="pricing-name">Starter</div>
-          <div class="pricing-desc">Perfect for testing the waters</div>
+          <div class="pricing-name">Basic</div>
+          <div class="pricing-desc">Perfect for getting started</div>
           <div class="pricing-price">
             <span class="pricing-currency">$</span>
-            <span class="pricing-amount">0</span>
+            <span class="pricing-amount">29</span>
             <span class="pricing-period">/month</span>
           </div>
           <ul class="pricing-features">
-            <li><span class="check">&#x2713;</span> 100 leads/month</li>
-            <li><span class="check">&#x2713;</span> 5 cities per scrape</li>
-            <li><span class="check">&#x2713;</span> Basic email verification</li>
+            <li><span class="check">&#x2713;</span> 500 leads/month</li>
+            <li><span class="check">&#x2713;</span> GHL sync</li>
             <li><span class="check">&#x2713;</span> CSV export</li>
+            <li><span class="check">&#x2713;</span> Email support</li>
           </ul>
-          <button class="btn btn-outline" style="width: 100%;" onclick="showPage('register')">Get Started</button>
+          <button class="btn btn-outline" style="width: 100%;" onclick="showPage('register')">Start Free Trial</button>
         </div>
         <div class="pricing-card featured">
-          <div class="pricing-name">Professional</div>
-          <div class="pricing-desc">For growing agencies</div>
+          <div class="pricing-name">Advanced</div>
+          <div class="pricing-desc">For growing businesses</div>
           <div class="pricing-price">
             <span class="pricing-currency">$</span>
-            <span class="pricing-amount">97</span>
+            <span class="pricing-amount">79</span>
             <span class="pricing-period">/month</span>
           </div>
           <ul class="pricing-features">
-            <li><span class="check">&#x2713;</span> 5,000 leads/month</li>
-            <li><span class="check">&#x2713;</span> Unlimited cities</li>
-            <li><span class="check">&#x2713;</span> Advanced verification</li>
-            <li><span class="check">&#x2713;</span> GHL integration</li>
+            <li><span class="check">&#x2713;</span> 2,500 leads/month</li>
+            <li><span class="check">&#x2713;</span> Everything in Basic</li>
             <li><span class="check">&#x2713;</span> Priority support</li>
+            <li><span class="check">&#x2713;</span> Email verification</li>
+            <li><span class="check">&#x2713;</span> Webhook notifications</li>
           </ul>
           <button class="btn btn-primary" style="width: 100%;" onclick="showPage('register')">Start Free Trial</button>
         </div>
         <div class="pricing-card">
+          <div class="pricing-name">Premium</div>
+          <div class="pricing-desc">For larger teams</div>
+          <div class="pricing-price">
+            <span class="pricing-currency">$</span>
+            <span class="pricing-amount">149</span>
+            <span class="pricing-period">/month</span>
+          </div>
+          <ul class="pricing-features">
+            <li><span class="check">&#x2713;</span> 10,000 leads/month</li>
+            <li><span class="check">&#x2713;</span> Everything in Advanced</li>
+            <li><span class="check">&#x2713;</span> API access</li>
+            <li><span class="check">&#x2713;</span> Custom webhooks</li>
+            <li><span class="check">&#x2713;</span> Bulk operations</li>
+          </ul>
+          <button class="btn btn-outline" style="width: 100%;" onclick="showPage('register')">Start Free Trial</button>
+        </div>
+        <div class="pricing-card">
           <div class="pricing-name">Enterprise</div>
-          <div class="pricing-desc">For high-volume operations</div>
+          <div class="pricing-desc">For agencies</div>
           <div class="pricing-price">
             <span class="pricing-currency">$</span>
             <span class="pricing-amount">297</span>
@@ -1533,7 +1559,7 @@
           </div>
           <ul class="pricing-features">
             <li><span class="check">&#x2713;</span> Unlimited leads</li>
-            <li><span class="check">&#x2713;</span> API access</li>
+            <li><span class="check">&#x2713;</span> Everything in Premium</li>
             <li><span class="check">&#x2713;</span> White-label exports</li>
             <li><span class="check">&#x2713;</span> Dedicated support</li>
             <li><span class="check">&#x2713;</span> Custom integrations</li>
@@ -2317,7 +2343,7 @@
         document.getElementById('settingsEmail').value = state.user.email || '';
 
         // Update plan display in sidebar
-        const planNames = { free: 'Free Plan', professional: 'Professional Plan', enterprise: 'Enterprise Plan' };
+        const planNames = { free: 'Free Trial', basic: 'Basic Plan', advanced: 'Advanced Plan', premium: 'Premium Plan', enterprise: 'Enterprise Plan' };
         const sidebarPlan = document.querySelector('.sidebar-user-plan');
         if (sidebarPlan) {
           sidebarPlan.textContent = planNames[state.user.plan] || 'Free Plan';
@@ -3212,9 +3238,11 @@
       if (!state.user) return;
 
       const planConfig = {
-        free: { name: 'Free', price: 0, features: '50 leads/month • Limited features', limit: 50 },
-        professional: { name: 'Professional', price: 97, features: '5,000 leads/month • Unlimited cities • GHL integration', limit: 5000 },
-        enterprise: { name: 'Enterprise', price: 297, features: 'Unlimited leads • API access • White-label exports', limit: -1 }
+        free: { name: 'Free Trial', price: 0, features: '50 leads • 3-day trial', limit: 50 },
+        basic: { name: 'Basic', price: 29, features: '500 leads/month • GHL sync • CSV export', limit: 500 },
+        advanced: { name: 'Advanced', price: 79, features: '2,500 leads/month • Email verification • Priority support', limit: 2500 },
+        premium: { name: 'Premium', price: 149, features: '10,000 leads/month • API access • Webhooks', limit: 10000 },
+        enterprise: { name: 'Enterprise', price: 297, features: 'Unlimited leads • White-label • Dedicated support', limit: -1 }
       };
 
       const plan = planConfig[state.user.plan] || planConfig.free;

@@ -15,19 +15,35 @@ const AIRWALLEX_BASE_URL = process.env.AIRWALLEX_ENV === 'production'
   ? 'https://api.airwallex.com'
   : 'https://api-demo.airwallex.com';
 
-// Plans configuration
+// Plans configuration - Updated pricing 2026
 const PLANS = {
-  professional: {
-    name: 'Professional',
-    price: 9700, // in cents
+  basic: {
+    name: 'Basic',
+    price: 2900, // $29/month in cents
     currency: 'USD',
-    leads_limit: 5000
+    leads_limit: 500,
+    features: ['GHL sync', 'CSV export', 'Email support']
+  },
+  advanced: {
+    name: 'Advanced',
+    price: 7900, // $79/month in cents
+    currency: 'USD',
+    leads_limit: 2500,
+    features: ['Everything in Basic', 'Priority support', 'Email verification', 'Webhook notifications']
+  },
+  premium: {
+    name: 'Premium',
+    price: 14900, // $149/month in cents
+    currency: 'USD',
+    leads_limit: 10000,
+    features: ['Everything in Advanced', 'API access', 'Custom webhooks', 'Bulk operations']
   },
   enterprise: {
-    name: 'Enterprise',
-    price: 29700, // in cents
+    name: 'Enterprise (Agency)',
+    price: 29700, // $297/month in cents
     currency: 'USD',
-    leads_limit: -1 // unlimited
+    leads_limit: -1, // unlimited
+    features: ['Everything in Premium', 'Unlimited leads', 'White-label exports', 'Dedicated support', 'Custom integrations']
   }
 };
 
