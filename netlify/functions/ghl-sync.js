@@ -86,7 +86,7 @@ exports.handler = async (event, context) => {
 
     // Get user's GHL settings
     const settingsResult = await pool.query(
-      'SELECT ghl_api_key, ghl_location_id FROM user_settings WHERE user_id = $1',
+      'SELECT ghl_api_key, ghl_location_id FROM lf_user_settings WHERE user_id = $1',
       [decoded.userId]
     );
 
@@ -103,7 +103,7 @@ exports.handler = async (event, context) => {
     // Get leads to sync
     let leadsQuery = `
       SELECT id, business_name, phone, email, address, city, state, industry, website
-      FROM leads WHERE user_id = $1 AND ghl_synced = false
+      FROM lf_leads WHERE user_id = $1 AND ghl_synced = false
     `;
     const values = [decoded.userId];
 
@@ -143,7 +143,7 @@ exports.handler = async (event, context) => {
 
         // Update lead as synced
         await pool.query(
-          'UPDATE leads SET ghl_synced = true, ghl_contact_id = $1 WHERE id = $2',
+          'UPDATE lf_leads SET ghl_synced = true, ghl_contact_id = $1 WHERE id = $2',
           [ghlContact.contact?.id || ghlContact.id, lead.id]
         );
 

@@ -43,33 +43,33 @@ exports.handler = async (event, context) => {
   try {
     // Get user info
     const userResult = await pool.query(
-      'SELECT id, email, name, company, plan, leads_used, leads_limit FROM users WHERE id = $1',
+      'SELECT id, email, name, company, plan, leads_used, leads_limit FROM lf_users WHERE id = $1',
       [decoded.userId]
     );
     const user = userResult.rows[0];
 
     // Get total leads
     const leadsResult = await pool.query(
-      'SELECT COUNT(*) as total FROM leads WHERE user_id = $1',
+      'SELECT COUNT(*) as total FROM lf_leads WHERE user_id = $1',
       [decoded.userId]
     );
 
     // Get synced leads
     const syncedResult = await pool.query(
-      'SELECT COUNT(*) as synced FROM leads WHERE user_id = $1 AND ghl_synced = true',
+      'SELECT COUNT(*) as synced FROM lf_leads WHERE user_id = $1 AND ghl_synced = true',
       [decoded.userId]
     );
 
     // Get scraped cities count
     const citiesResult = await pool.query(
-      'SELECT COUNT(DISTINCT city) as cities FROM user_scraped_cities WHERE user_id = $1',
+      'SELECT COUNT(DISTINCT city) as cities FROM lf_scraped_cities WHERE user_id = $1',
       [decoded.userId]
     );
 
     // Get recent activity (last 7 days)
     const activityResult = await pool.query(
       `SELECT DATE(created_at) as date, COUNT(*) as count
-       FROM leads WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days'
+       FROM lf_leads WHERE user_id = $1 AND created_at > NOW() - INTERVAL '7 days'
        GROUP BY DATE(created_at) ORDER BY date DESC`,
       [decoded.userId]
     );
@@ -77,7 +77,7 @@ exports.handler = async (event, context) => {
     // Get top industries
     const industriesResult = await pool.query(
       `SELECT industry, COUNT(*) as count
-       FROM leads WHERE user_id = $1 AND industry IS NOT NULL AND industry != ''
+       FROM lf_leads WHERE user_id = $1 AND industry IS NOT NULL AND industry != ''
        GROUP BY industry ORDER BY count DESC LIMIT 5`,
       [decoded.userId]
     );

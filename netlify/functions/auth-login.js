@@ -42,7 +42,7 @@ exports.handler = async (event, context) => {
     // Find user
     const result = await pool.query(
       `SELECT id, email, password_hash, name, company, plan, leads_used, leads_limit, created_at
-       FROM users WHERE email = $1`,
+       FROM lf_users WHERE email = $1`,
       [email.toLowerCase()]
     );
 
@@ -70,7 +70,7 @@ exports.handler = async (event, context) => {
     // Get user settings
     const settingsResult = await pool.query(
       `SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id
-       FROM user_settings WHERE user_id = $1`,
+       FROM lf_user_settings WHERE user_id = $1`,
       [user.id]
     );
 

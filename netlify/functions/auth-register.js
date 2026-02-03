@@ -41,7 +41,7 @@ exports.handler = async (event, context) => {
 
     // Check if user already exists
     const existingUser = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
+      'SELECT id FROM lf_users WHERE email = $1',
       [email.toLowerCase()]
     );
 
@@ -59,7 +59,7 @@ exports.handler = async (event, context) => {
 
     // Create user
     const result = await pool.query(
-      `INSERT INTO users (email, password_hash, name, company, plan, leads_limit)
+      `INSERT INTO lf_users (email, password_hash, name, company, plan, leads_limit)
        VALUES ($1, $2, $3, $4, 'free', 50)
        RETURNING id, email, name, company, plan, leads_used, leads_limit, created_at`,
       [email.toLowerCase(), passwordHash, name || '', company || '']
@@ -69,7 +69,7 @@ exports.handler = async (event, context) => {
 
     // Create default user settings
     await pool.query(
-      `INSERT INTO user_settings (user_id) VALUES ($1)`,
+      `INSERT INTO lf_user_settings (user_id) VALUES ($1)`,
       [user.id]
     );
 

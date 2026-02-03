@@ -46,7 +46,7 @@ exports.handler = async (event, context) => {
 
     let query = `
       SELECT city, industry, lead_count, scraped_at
-      FROM user_scraped_cities WHERE user_id = $1
+      FROM lf_scraped_cities WHERE user_id = $1
     `;
     const values = [decoded.userId];
 

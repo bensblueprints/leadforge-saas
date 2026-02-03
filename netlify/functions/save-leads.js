@@ -61,7 +61,7 @@ exports.handler = async (event, context) => {
 
     // Check user's lead limit
     const userResult = await pool.query(
-      'SELECT leads_used, leads_limit, plan FROM users WHERE id = $1',
+      'SELECT leads_used, leads_limit, plan FROM lf_users WHERE id = $1',
       [decoded.userId]
     );
     const user = userResult.rows[0];
@@ -85,7 +85,7 @@ exports.handler = async (event, context) => {
     for (const lead of leads) {
       try {
         await pool.query(
-          `INSERT INTO leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews)
+          `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            ON CONFLICT DO NOTHING`,
           [
@@ -110,17 +110,17 @@ exports.handler = async (event, context) => {
 
     // Update user's lead count
     await pool.query(
-      'UPDATE users SET leads_used = leads_used + $1 WHERE id = $2',
+      'UPDATE lf_users SET leads_used = leads_used + $1 WHERE id = $2',
       [savedCount, decoded.userId]
     );
 
     // Record scraped city
     if (city && industry) {
       await pool.query(
-        `INSERT INTO user_scraped_cities (user_id, city, industry, lead_count)
+        `INSERT INTO lf_scraped_cities (user_id, city, industry, lead_count)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (user_id, city, industry)
-         DO UPDATE SET lead_count = user_scraped_cities.lead_count + $4, scraped_at = NOW()`,
+         DO UPDATE SET lead_count = lf_scraped_cities.lead_count + $4, scraped_at = NOW()`,
         [decoded.userId, city, industry, savedCount]
       );
     }

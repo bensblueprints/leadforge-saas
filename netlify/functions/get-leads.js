@@ -51,7 +51,7 @@ exports.handler = async (event, context) => {
     let query = `
       SELECT id, business_name, phone, email, address, city, state, industry,
              website, rating, reviews, ghl_synced, ghl_contact_id, created_at
-      FROM leads WHERE user_id = $1
+      FROM lf_leads WHERE user_id = $1
     `;
     const values = [decoded.userId];
     let paramIndex = 2;
@@ -81,7 +81,7 @@ exports.handler = async (event, context) => {
 
     // Get total count
     const countResult = await pool.query(
-      'SELECT COUNT(*) as total FROM leads WHERE user_id = $1',
+      'SELECT COUNT(*) as total FROM lf_leads WHERE user_id = $1',
       [decoded.userId]
     );
 

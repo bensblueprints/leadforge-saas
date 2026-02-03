@@ -16,10 +16,12 @@ exports.handler = async (event, context) => {
     return { statusCode: 200, headers, body: '' };
   }
 
+  const results = [];
+
   try {
-    // Create users table
+    // Create users table first (no foreign keys)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE IF NOT EXISTS lf_users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
@@ -32,12 +34,13 @@ exports.handler = async (event, context) => {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    results.push('Created lf_users table');
 
-    // Create user_settings table for GHL configs
+    // Create settings table (no foreign keys, use user_id as index)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_settings (
+      CREATE TABLE IF NOT EXISTS lf_user_settings (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL,
         ghl_api_key VARCHAR(255),
         ghl_location_id VARCHAR(255),
         ghl_auto_sync BOOLEAN DEFAULT false,
@@ -47,12 +50,13 @@ exports.handler = async (event, context) => {
         UNIQUE(user_id)
       )
     `);
+    results.push('Created lf_user_settings table');
 
-    // Create leads table
+    // Create leads table (no foreign keys)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS leads (
+      CREATE TABLE IF NOT EXISTS lf_leads (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL,
         business_name VARCHAR(255),
         phone VARCHAR(50),
         email VARCHAR(255),
@@ -68,12 +72,13 @@ exports.handler = async (event, context) => {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    results.push('Created lf_leads table');
 
-    // Create scraped_cities table for tracking
+    // Create scraped cities table (no foreign keys)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_scraped_cities (
+      CREATE TABLE IF NOT EXISTS lf_scraped_cities (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL,
         city VARCHAR(255) NOT NULL,
         industry VARCHAR(100) NOT NULL,
         lead_count INTEGER DEFAULT 0,
@@ -81,22 +86,29 @@ exports.handler = async (event, context) => {
         UNIQUE(user_id, city, industry)
       )
     `);
+    results.push('Created lf_scraped_cities table');
 
-    // Create subscriptions table for Stripe
+    // Create subscriptions table (no foreign keys)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS subscriptions (
+      CREATE TABLE IF NOT EXISTS lf_subscriptions (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL UNIQUE,
         stripe_customer_id VARCHAR(255),
         stripe_subscription_id VARCHAR(255),
         plan VARCHAR(50) DEFAULT 'free',
         status VARCHAR(50) DEFAULT 'active',
         current_period_end TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(user_id)
+        updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    results.push('Created lf_subscriptions table');
+
+    // Create indexes for better performance
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_lf_leads_user ON lf_leads(user_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_lf_settings_user ON lf_user_settings(user_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_lf_cities_user ON lf_scraped_cities(user_id)');
+    results.push('Created indexes');
 
     return {
       statusCode: 200,
@@ -104,7 +116,8 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         message: 'All tables created successfully',
-        tables: ['users', 'user_settings', 'leads', 'user_scraped_cities', 'subscriptions']
+        results,
+        tables: ['lf_users', 'lf_user_settings', 'lf_leads', 'lf_scraped_cities', 'lf_subscriptions']
       })
     };
   } catch (error) {
@@ -112,7 +125,11 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Database setup failed', message: error.message })
+      body: JSON.stringify({
+        error: 'Database setup failed',
+        message: error.message,
+        results
+      })
     };
   }
 };

@@ -70,7 +70,7 @@ exports.handler = async (event, context) => {
 
       values.push(decoded.userId);
       await pool.query(
-        `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramIndex}`,
+        `UPDATE lf_users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramIndex}`,
         values
       );
     }
@@ -104,18 +104,18 @@ exports.handler = async (event, context) => {
 
       ghlValues.push(decoded.userId);
       await pool.query(
-        `UPDATE user_settings SET ${ghlUpdates.join(', ')}, updated_at = NOW() WHERE user_id = $${ghlParamIndex}`,
+        `UPDATE lf_user_settings SET ${ghlUpdates.join(', ')}, updated_at = NOW() WHERE user_id = $${ghlParamIndex}`,
         ghlValues
       );
     }
 
     // Fetch updated data
     const userResult = await pool.query(
-      'SELECT id, email, name, company, plan, leads_used, leads_limit FROM users WHERE id = $1',
+      'SELECT id, email, name, company, plan, leads_used, leads_limit FROM lf_users WHERE id = $1',
       [decoded.userId]
     );
     const settingsResult = await pool.query(
-      'SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id FROM user_settings WHERE user_id = $1',
+      'SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id FROM lf_user_settings WHERE user_id = $1',
       [decoded.userId]
     );
 
