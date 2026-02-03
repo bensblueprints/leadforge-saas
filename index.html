@@ -1992,14 +1992,13 @@
             <div class="panel-body">
               <div class="settings-section">
                 <div class="settings-section-title">Current Plan</div>
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 24px; background: var(--bg-elevated); border-radius: 12px;">
+                <div id="currentPlanDisplay" style="display: flex; align-items: center; justify-content: space-between; padding: 24px; background: var(--bg-elevated); border-radius: 12px;">
                   <div>
-                    <div style="font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 700; margin-bottom: 4px;">Professional</div>
-                    <div style="color: var(--text-secondary);">5,000 leads/month &bull; Unlimited cities &bull; GHL integration</div>
+                    <div id="planName" style="font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 700; margin-bottom: 4px;">Free</div>
+                    <div id="planFeatures" style="color: var(--text-secondary);">50 leads/month &bull; Limited features</div>
                   </div>
                   <div style="text-align: right;">
-                    <div style="font-family: 'Space Mono', monospace; font-size: 32px; font-weight: 700;">$97<span style="font-size: 16px; color: var(--text-muted);">/mo</span></div>
-                    <div style="color: var(--text-secondary); font-size: 14px;">Next billing: Feb 15, 2026</div>
+                    <div id="planPrice" style="font-family: 'Space Mono', monospace; font-size: 32px; font-weight: 700;">$0<span style="font-size: 16px; color: var(--text-muted);">/mo</span></div>
                   </div>
                 </div>
               </div>
@@ -2009,33 +2008,47 @@
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
                   <div style="padding: 20px; background: var(--bg-elevated); border-radius: 12px;">
                     <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Leads Used</div>
-                    <div style="font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700;">1,247 <span style="font-size: 14px; color: var(--text-muted);">/ 5,000</span></div>
+                    <div style="font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700;"><span id="billingLeadsUsed">0</span> <span id="billingLeadsLimit" style="font-size: 14px; color: var(--text-muted);">/ 50</span></div>
                     <div style="height: 4px; background: var(--bg-surface); border-radius: 2px; margin-top: 12px;">
-                      <div style="height: 100%; width: 25%; background: var(--gradient-primary); border-radius: 2px;"></div>
+                      <div id="leadsProgressBar" style="height: 100%; width: 0%; background: var(--gradient-primary); border-radius: 2px;"></div>
                     </div>
                   </div>
                   <div style="padding: 20px; background: var(--bg-elevated); border-radius: 12px;">
                     <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">GHL Syncs</div>
-                    <div style="font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700;">892</div>
+                    <div id="billingGhlSyncs" style="font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700;">0</div>
                   </div>
                   <div style="padding: 20px; background: var(--bg-elevated); border-radius: 12px;">
                     <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Cities Scraped</div>
-                    <div style="font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700;">34</div>
+                    <div id="billingCitiesScraped" style="font-family: 'Space Mono', monospace; font-size: 24px; font-weight: 700;">0</div>
                   </div>
                 </div>
               </div>
 
               <div class="settings-section">
-                <div class="settings-section-title">Payment Method</div>
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px; background: var(--bg-elevated); border-radius: 12px;">
-                  <div style="display: flex; align-items: center; gap: 16px;">
-                    <div style="width: 48px; height: 32px; background: linear-gradient(135deg, #1a1f71, #00a2e5); border-radius: 6px;"></div>
-                    <div>
-                      <div style="font-weight: 600;">Visa ending in 4242</div>
-                      <div style="font-size: 14px; color: var(--text-secondary);">Expires 12/27</div>
-                    </div>
+                <div class="settings-section-title">Upgrade Your Plan</div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                  <div style="padding: 24px; background: var(--bg-elevated); border-radius: 12px; border: 2px solid var(--accent-primary);">
+                    <div style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Professional</div>
+                    <div style="font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; margin-bottom: 12px;">$97<span style="font-size: 14px; color: var(--text-muted);">/mo</span></div>
+                    <ul style="list-style: none; margin-bottom: 20px; font-size: 14px; color: var(--text-secondary);">
+                      <li style="padding: 6px 0;">&#x2713; 5,000 leads/month</li>
+                      <li style="padding: 6px 0;">&#x2713; Unlimited cities</li>
+                      <li style="padding: 6px 0;">&#x2713; GHL integration</li>
+                      <li style="padding: 6px 0;">&#x2713; Priority support</li>
+                    </ul>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="upgradePlan('professional')">Upgrade Now</button>
                   </div>
-                  <button class="btn btn-secondary btn-sm">Update</button>
+                  <div style="padding: 24px; background: var(--bg-elevated); border-radius: 12px; border: 1px solid var(--border-medium);">
+                    <div style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Enterprise</div>
+                    <div style="font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; margin-bottom: 12px;">$297<span style="font-size: 14px; color: var(--text-muted);">/mo</span></div>
+                    <ul style="list-style: none; margin-bottom: 20px; font-size: 14px; color: var(--text-secondary);">
+                      <li style="padding: 6px 0;">&#x2713; Unlimited leads</li>
+                      <li style="padding: 6px 0;">&#x2713; API access</li>
+                      <li style="padding: 6px 0;">&#x2713; White-label exports</li>
+                      <li style="padding: 6px 0;">&#x2713; Dedicated support</li>
+                    </ul>
+                    <button class="btn btn-outline" style="width: 100%;" onclick="upgradePlan('enterprise')">Upgrade Now</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2052,6 +2065,7 @@
     // ===== APP STATE =====
     const state = {
       user: null,
+      token: null,
       leads: [],
       scrapedCities: [],
       selectedCities: [],
@@ -2120,8 +2134,10 @@
 
     // ===== AUTH =====
     function checkAuth() {
+      const token = localStorage.getItem('leadforge_token');
       const savedUser = localStorage.getItem('leadforge_user');
-      if (savedUser) {
+      if (token && savedUser) {
+        state.token = token;
         state.user = JSON.parse(savedUser);
         updateUserUI();
         loadUserData();
@@ -2137,19 +2153,34 @@
       const email = document.getElementById('loginEmail').value;
       const password = document.getElementById('loginPassword').value;
 
-      // Simulate API call
-      await sleep(1000);
+      try {
+        const response = await fetch(`${API_BASE}/auth-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
 
-      state.user = { email, name: email.split('@')[0] };
-      localStorage.setItem('leadforge_user', JSON.stringify(state.user));
+        const data = await response.json();
 
-      btn.classList.remove('loading');
-      btn.disabled = false;
+        if (!response.ok) {
+          throw new Error(data.error || 'Login failed');
+        }
 
-      showToast('success', 'Welcome back!');
-      updateUserUI();
-      showPage('dashboard');
-      loadUserData();
+        state.token = data.token;
+        state.user = data.user;
+        localStorage.setItem('leadforge_token', data.token);
+        localStorage.setItem('leadforge_user', JSON.stringify(data.user));
+
+        showToast('success', 'Welcome back!');
+        updateUserUI();
+        showPage('dashboard');
+        loadUserData();
+      } catch (error) {
+        showToast('error', error.message);
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
     }
 
     async function handleRegister(e) {
@@ -2162,59 +2193,119 @@
       const email = document.getElementById('registerEmail').value;
       const password = document.getElementById('registerPassword').value;
 
-      // Simulate API call
-      await sleep(1000);
+      try {
+        const response = await fetch(`${API_BASE}/auth-register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name })
+        });
 
-      state.user = { email, name };
-      localStorage.setItem('leadforge_user', JSON.stringify(state.user));
+        const data = await response.json();
 
-      btn.classList.remove('loading');
-      btn.disabled = false;
+        if (!response.ok) {
+          throw new Error(data.error || 'Registration failed');
+        }
 
-      showToast('success', 'Account created! Welcome to LeadForge.');
-      updateUserUI();
-      showPage('dashboard');
+        state.token = data.token;
+        state.user = data.user;
+        localStorage.setItem('leadforge_token', data.token);
+        localStorage.setItem('leadforge_user', JSON.stringify(data.user));
+
+        showToast('success', 'Account created! Welcome to LeadForge.');
+        updateUserUI();
+        showPage('dashboard');
+        loadUserData();
+      } catch (error) {
+        showToast('error', error.message);
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
     }
 
     function logout() {
       state.user = null;
+      state.token = null;
       localStorage.removeItem('leadforge_user');
+      localStorage.removeItem('leadforge_token');
       showPage('landing');
       showToast('info', 'You have been signed out.');
     }
 
     function updateUserUI() {
       if (state.user) {
-        document.getElementById('userName').textContent = state.user.name;
-        document.getElementById('userAvatar').textContent = state.user.name.charAt(0).toUpperCase();
-        document.getElementById('settingsName').value = state.user.name;
-        document.getElementById('settingsEmail').value = state.user.email;
+        document.getElementById('userName').textContent = state.user.name || state.user.email.split('@')[0];
+        document.getElementById('userAvatar').textContent = (state.user.name || state.user.email).charAt(0).toUpperCase();
+        document.getElementById('settingsName').value = state.user.name || '';
+        document.getElementById('settingsEmail').value = state.user.email || '';
+
+        // Update plan display in sidebar
+        const planNames = { free: 'Free Plan', professional: 'Professional Plan', enterprise: 'Enterprise Plan' };
+        const sidebarPlan = document.querySelector('.sidebar-user-plan');
+        if (sidebarPlan) {
+          sidebarPlan.textContent = planNames[state.user.plan] || 'Free Plan';
+        }
+
+        updateBillingDisplay();
       }
     }
 
     // ===== DATA LOADING =====
     async function loadUserData() {
-      try {
-        // Load scraped cities
-        const citiesRes = await fetch(`${API_BASE}/get-scraped-cities`);
-        if (citiesRes.ok) {
-          state.scrapedCities = await citiesRes.json();
-          document.getElementById('statCitiesScraped').textContent = state.scrapedCities.length;
+      if (!state.token) return;
 
-          // Calculate total leads from scraped cities
-          const totalLeads = state.scrapedCities.reduce((sum, c) => sum + (c.lead_count || 0), 0);
-          document.getElementById('statTotalLeads').textContent = totalLeads;
+      try {
+        // Load dashboard stats
+        const statsRes = await fetch(`${API_BASE}/get-stats`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          document.getElementById('statTotalLeads').textContent = stats.totalLeads || 0;
+          document.getElementById('statCitiesScraped').textContent = stats.citiesScraped || 0;
+          document.getElementById('statVerifiedEmails').textContent = stats.verifiedEmails || 0;
+          document.getElementById('statGhlSynced').textContent = stats.ghlSynced || 0;
+
+          // Update user plan display
+          if (stats.user) {
+            state.user = { ...state.user, ...stats.user };
+            localStorage.setItem('leadforge_user', JSON.stringify(state.user));
+          }
         }
 
-        // Load GHL config
-        const savedGhl = localStorage.getItem('leadforge_ghl');
-        if (savedGhl) {
-          state.ghlConfig = JSON.parse(savedGhl);
-          document.getElementById('ghlApiKey').value = state.ghlConfig.apiKey ? '••••••••••••••••' : '';
-          document.getElementById('ghlLocationId').value = state.ghlConfig.locationId || '';
-          document.getElementById('ghlAutoSync').checked = state.ghlConfig.autoSync;
+        // Load scraped cities
+        const citiesRes = await fetch(`${API_BASE}/get-scraped-cities`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (citiesRes.ok) {
+          const citiesData = await citiesRes.json();
+          state.scrapedCities = citiesData.cities || [];
+        }
 
-          if (state.ghlConfig.apiKey) {
+        // Load leads for My Leads view
+        const leadsRes = await fetch(`${API_BASE}/get-leads`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (leadsRes.ok) {
+          const leadsData = await leadsRes.json();
+          state.leads = leadsData.leads || [];
+          renderAllLeads();
+        }
+
+        // Load user settings for GHL config
+        const settingsRes = await fetch(`${API_BASE}/get-settings`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (settingsRes.ok) {
+          const settings = await settingsRes.json();
+          if (settings.ghl_api_key) {
+            state.ghlConfig.apiKey = settings.ghl_api_key;
+            state.ghlConfig.locationId = settings.ghl_location_id || '';
+            state.ghlConfig.autoSync = settings.ghl_auto_sync || false;
+
+            document.getElementById('ghlApiKey').value = '••••••••••••••••';
+            document.getElementById('ghlLocationId').value = state.ghlConfig.locationId;
+            document.getElementById('ghlAutoSync').checked = state.ghlConfig.autoSync;
             document.getElementById('ghlStatus').innerHTML = `
               <span class="badge badge-success">Connected</span>
               <span style="color: var(--text-secondary); font-size: 14px;">Ready to sync leads</span>
@@ -2224,6 +2315,54 @@
       } catch (err) {
         console.error('Failed to load user data:', err);
       }
+    }
+
+    function renderAllLeads() {
+      const container = document.getElementById('allLeads');
+
+      if (!state.leads || state.leads.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">&#x1F4C2;</div>
+            <div class="empty-state-title">No leads yet</div>
+            <div class="empty-state-text">Your scraped leads will appear here</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Business</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>City</th>
+                <th>Industry</th>
+                <th>GHL</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${state.leads.map(lead => `
+                <tr>
+                  <td><strong>${lead.business_name}</strong></td>
+                  <td>${lead.email || '-'}</td>
+                  <td>${lead.phone || '-'}</td>
+                  <td>${lead.city || '-'}</td>
+                  <td>${lead.industry || '-'}</td>
+                  <td>
+                    <span class="badge ${lead.ghl_synced ? 'badge-success' : 'badge-warning'}">
+                      ${lead.ghl_synced ? '&#x2713; Synced' : 'Not synced'}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
     }
 
     // ===== CITY INPUT =====
@@ -2304,16 +2443,21 @@
     // ===== SCRAPING =====
     async function startScrape() {
       const industry = document.getElementById('scrapeIndustry').value;
-      const maxResults = document.getElementById('scrapeMaxResults').value;
+      const maxResults = parseInt(document.getElementById('scrapeMaxResults').value);
       const btn = document.getElementById('startScrapeBtn');
       const progressContainer = document.getElementById('scrapeProgress');
       const progressBar = document.getElementById('scrapeProgressBar');
       const progressText = document.getElementById('scrapeProgressText');
 
+      if (!state.token) {
+        showToast('error', 'Please log in to scrape leads');
+        return;
+      }
+
       // Filter out already scraped
       const citiesToScrape = state.selectedCities.filter(city =>
         !state.scrapedCities.some(
-          s => s.city.toLowerCase() === city.toLowerCase() && s.industry === industry
+          s => s.city && s.city.toLowerCase() === city.toLowerCase() && s.industry === industry
         )
       );
 
@@ -2325,57 +2469,79 @@
       btn.classList.add('loading');
       btn.disabled = true;
       progressContainer.classList.add('active');
-      state.currentResults = [];
+      progressBar.style.width = '10%';
+      progressText.textContent = 'Initiating scrape...';
 
-      for (let i = 0; i < citiesToScrape.length; i++) {
-        const city = citiesToScrape[i];
-        const progress = ((i + 1) / citiesToScrape.length) * 100;
+      try {
+        // Trigger the scrape via API
+        const response = await fetch(`${API_BASE}/trigger-scrape`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({
+            cities: citiesToScrape,
+            industry,
+            maxResults
+          })
+        });
 
-        progressBar.style.width = `${progress}%`;
-        progressText.textContent = `Scraping ${city}... (${i + 1}/${citiesToScrape.length})`;
+        const data = await response.json();
 
-        try {
-          // Record the scrape
-          const response = await fetch(`${API_BASE}/record-scrape`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              city,
-              industry,
-              lead_count: parseInt(maxResults)
-            })
-          });
-
-          if (response.ok) {
-            // Generate mock leads for demo
-            const leads = generateMockLeads(city, industry, parseInt(maxResults));
-            state.currentResults = [...state.currentResults, ...leads];
-          }
-        } catch (err) {
-          console.error(`Failed to scrape ${city}:`, err);
+        if (!response.ok) {
+          throw new Error(data.error || 'Scrape failed');
         }
+
+        progressBar.style.width = '50%';
+        progressText.textContent = `Scraping ${data.citiesToScrape} cities...`;
+
+        // Poll for results (or simulate progress)
+        await simulateScrapeProgress(citiesToScrape, industry, maxResults, progressBar, progressText);
+
+        progressBar.style.width = '100%';
+        progressText.textContent = 'Complete!';
+
+        // Reload data to get actual results
+        await loadUserData();
+
+        // Show current session results
+        state.currentResults = state.leads.filter(l =>
+          citiesToScrape.some(c => l.city && l.city.toLowerCase() === c.toLowerCase()) &&
+          l.industry === industry
+        );
+
+        renderResults();
+
+        document.getElementById('exportCsvBtn').disabled = state.currentResults.length === 0;
+        document.getElementById('syncGhlBtn').disabled = state.currentResults.length === 0;
+
+        // Clear selected cities
+        state.selectedCities = [];
+        renderCityTags();
+
+        showToast('success', `Scrape initiated! ${data.citiesToScrape} cities queued.`);
+
+      } catch (error) {
+        showToast('error', error.message);
+        progressText.textContent = 'Failed';
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+
+        setTimeout(() => {
+          progressContainer.classList.remove('active');
+        }, 3000);
       }
+    }
 
-      progressText.textContent = 'Complete!';
-      btn.classList.remove('loading');
-      btn.disabled = false;
-
-      // Update stats
-      await loadUserData();
-      renderResults();
-
-      document.getElementById('exportCsvBtn').disabled = false;
-      document.getElementById('syncGhlBtn').disabled = false;
-
-      // Clear selected cities
-      state.selectedCities = [];
-      renderCityTags();
-
-      showToast('success', `Found ${state.currentResults.length} leads!`);
-
-      setTimeout(() => {
-        progressContainer.classList.remove('active');
-      }, 2000);
+    async function simulateScrapeProgress(cities, industry, maxResults, progressBar, progressText) {
+      // Simulate progress while n8n processes in background
+      for (let i = 0; i < cities.length; i++) {
+        progressBar.style.width = `${50 + ((i + 1) / cities.length) * 40}%`;
+        progressText.textContent = `Processing ${cities[i]}... (${i + 1}/${cities.length})`;
+        await sleep(1500); // Simulate processing time
+      }
     }
 
     function generateMockLeads(city, industry, count) {
@@ -2488,45 +2654,118 @@
         return;
       }
 
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
+
       const btn = document.getElementById('syncGhlBtn');
       btn.classList.add('loading');
       btn.disabled = true;
 
-      // Simulate sync
-      await sleep(2000);
+      try {
+        // Get lead IDs that haven't been synced
+        const unsyncedLeads = state.currentResults.filter(l => !l.ghl_synced);
+        const leadIds = unsyncedLeads.map(l => l.id);
 
-      btn.classList.remove('loading');
-      btn.disabled = false;
+        if (leadIds.length === 0) {
+          showToast('info', 'All leads already synced to GHL');
+          return;
+        }
 
-      const syncedCount = state.currentResults.length;
-      document.getElementById('statGhlSynced').textContent =
-        parseInt(document.getElementById('statGhlSynced').textContent) + syncedCount;
+        const response = await fetch(`${API_BASE}/ghl-sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ leadIds })
+        });
 
-      showToast('success', `${syncedCount} leads synced to GoHighLevel!`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Sync failed');
+        }
+
+        // Reload data to reflect changes
+        await loadUserData();
+
+        showToast('success', `${data.syncedCount} leads synced to GoHighLevel!`);
+      } catch (error) {
+        showToast('error', error.message);
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
     }
 
     // ===== GHL SETTINGS =====
-    function saveGhlKey() {
+    async function saveGhlKey() {
       const key = document.getElementById('ghlApiKey').value;
       if (!key || key.includes('••')) return;
 
-      state.ghlConfig.apiKey = key;
-      localStorage.setItem('leadforge_ghl', JSON.stringify(state.ghlConfig));
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
 
-      document.getElementById('ghlApiKey').value = '••••••••••••••••';
-      document.getElementById('ghlStatus').innerHTML = `
-        <span class="badge badge-success">Connected</span>
-        <span style="color: var(--text-secondary); font-size: 14px;">Ready to sync leads</span>
-      `;
+      try {
+        const response = await fetch(`${API_BASE}/update-settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ ghl_api_key: key })
+        });
 
-      showToast('success', 'GHL API key saved!');
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save');
+        }
+
+        state.ghlConfig.apiKey = key;
+        document.getElementById('ghlApiKey').value = '••••••••••••••••';
+        document.getElementById('ghlStatus').innerHTML = `
+          <span class="badge badge-success">Connected</span>
+          <span style="color: var(--text-secondary); font-size: 14px;">Ready to sync leads</span>
+        `;
+
+        showToast('success', 'GHL API key saved!');
+      } catch (error) {
+        showToast('error', error.message);
+      }
     }
 
-    function saveGhlLocation() {
+    async function saveGhlLocation() {
       const locationId = document.getElementById('ghlLocationId').value;
-      state.ghlConfig.locationId = locationId;
-      localStorage.setItem('leadforge_ghl', JSON.stringify(state.ghlConfig));
-      showToast('success', 'Location ID saved!');
+
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/update-settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ ghl_location_id: locationId })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save');
+        }
+
+        state.ghlConfig.locationId = locationId;
+        showToast('success', 'Location ID saved!');
+      } catch (error) {
+        showToast('error', error.message);
+      }
     }
 
     // ===== TOAST NOTIFICATIONS =====
@@ -2551,6 +2790,77 @@
         toast.style.animation = 'slideIn 0.3s ease reverse';
         setTimeout(() => toast.remove(), 300);
       }, 4000);
+    }
+
+    // ===== BILLING =====
+    async function upgradePlan(planId) {
+      if (!state.token || !state.user) {
+        showToast('error', 'Please log in first');
+        showPage('login');
+        return;
+      }
+
+      showToast('info', 'Preparing checkout...');
+
+      try {
+        const response = await fetch(`${API_BASE}/create-checkout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({
+            planId,
+            email: state.user.email,
+            userId: state.user.id
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to create checkout');
+        }
+
+        // Redirect to Airwallex hosted payment page
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+        } else {
+          showToast('error', 'Checkout URL not received');
+        }
+      } catch (error) {
+        showToast('error', error.message);
+      }
+    }
+
+    function updateBillingDisplay() {
+      if (!state.user) return;
+
+      const planConfig = {
+        free: { name: 'Free', price: 0, features: '50 leads/month • Limited features', limit: 50 },
+        professional: { name: 'Professional', price: 97, features: '5,000 leads/month • Unlimited cities • GHL integration', limit: 5000 },
+        enterprise: { name: 'Enterprise', price: 297, features: 'Unlimited leads • API access • White-label exports', limit: -1 }
+      };
+
+      const plan = planConfig[state.user.plan] || planConfig.free;
+      const leadsUsed = state.user.leadsUsed || 0;
+      const leadsLimit = state.user.leadsLimit || plan.limit;
+
+      document.getElementById('planName').textContent = plan.name;
+      document.getElementById('planFeatures').textContent = plan.features;
+      document.getElementById('planPrice').innerHTML = `$${plan.price}<span style="font-size: 16px; color: var(--text-muted);">/mo</span>`;
+
+      document.getElementById('billingLeadsUsed').textContent = leadsUsed;
+      document.getElementById('billingLeadsLimit').textContent = leadsLimit === -1 ? '/ ∞' : `/ ${leadsLimit}`;
+
+      const progressPercent = leadsLimit === -1 ? 0 : Math.min((leadsUsed / leadsLimit) * 100, 100);
+      document.getElementById('leadsProgressBar').style.width = `${progressPercent}%`;
+
+      // Update from stats
+      const ghlSynced = document.getElementById('statGhlSynced').textContent;
+      const citiesScraped = document.getElementById('statCitiesScraped').textContent;
+      document.getElementById('billingGhlSyncs').textContent = ghlSynced;
+      document.getElementById('billingCitiesScraped').textContent = citiesScraped;
     }
 
     // ===== UTILITIES =====
