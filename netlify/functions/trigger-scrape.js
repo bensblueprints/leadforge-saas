@@ -15,7 +15,13 @@ const SERP_API_KEY = process.env.SERP_API_KEY;
 // n8n webhook URL on your NAS server
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://100.122.165.61:5678/webhook/leadforge-scrape';
 
+// Helper function to wait (for pagination token to become valid)
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Function to scrape real leads using Google Places API (Legacy - works with more API keys)
+// Supports pagination to get more than 20 results (up to 60 per search)
 async function scrapeWithGooglePlaces(industry, city, maxResults) {
   if (!GOOGLE_MAPS_API_KEY) {
     console.log('No GOOGLE_MAPS_API_KEY configured');
@@ -24,82 +30,103 @@ async function scrapeWithGooglePlaces(industry, city, maxResults) {
 
   try {
     const query = `${industry} in ${city}`;
-    console.log(`Searching Google Places API for: "${query}"`);
+    console.log(`Searching Google Places API for: "${query}", requesting ${maxResults} results`);
 
-    // Use Legacy Places API (Text Search)
-    const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_MAPS_API_KEY}`;
-
-    const searchResponse = await fetch(searchUrl);
-
-    if (!searchResponse.ok) {
-      const errorText = await searchResponse.text();
-      console.error('Google Places API error:', searchResponse.status, errorText);
-      return null;
-    }
-
-    const searchData = await searchResponse.json();
-
-    if (searchData.status !== 'OK' && searchData.status !== 'ZERO_RESULTS') {
-      console.error('Google Places API status:', searchData.status, searchData.error_message);
-      return null;
-    }
-
-    console.log(`Google Places returned ${searchData.results?.length || 0} results`);
-
-    const places = searchData.results || [];
     const leads = [];
+    let nextPageToken = null;
+    let pageCount = 0;
+    const maxPages = Math.ceil((maxResults || 60) / 20); // Google returns max 20 per page, max 3 pages (60 total)
 
-    // Process each place and get details for phone numbers
-    for (const place of places.slice(0, maxResults || 20)) {
-      try {
-        // Get place details for phone number
-        let phone = '';
-        let website = '';
+    do {
+      // Build URL with or without page token
+      let searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_MAPS_API_KEY}`;
+      if (nextPageToken) {
+        searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?pagetoken=${nextPageToken}&key=${GOOGLE_MAPS_API_KEY}`;
+      }
 
-        if (place.place_id) {
-          const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=formatted_phone_number,website&key=${GOOGLE_MAPS_API_KEY}`;
-          const detailsResponse = await fetch(detailsUrl);
+      const searchResponse = await fetch(searchUrl);
 
-          if (detailsResponse.ok) {
-            const detailsData = await detailsResponse.json();
-            if (detailsData.result) {
-              phone = detailsData.result.formatted_phone_number || '';
-              website = detailsData.result.website || '';
+      if (!searchResponse.ok) {
+        const errorText = await searchResponse.text();
+        console.error('Google Places API error:', searchResponse.status, errorText);
+        break;
+      }
+
+      const searchData = await searchResponse.json();
+
+      if (searchData.status !== 'OK' && searchData.status !== 'ZERO_RESULTS') {
+        console.error('Google Places API status:', searchData.status, searchData.error_message);
+        break;
+      }
+
+      const places = searchData.results || [];
+      console.log(`Page ${pageCount + 1}: Got ${places.length} results`);
+
+      // Process each place and get details for phone numbers
+      for (const place of places) {
+        if (leads.length >= maxResults) break;
+
+        try {
+          // Get place details for phone number
+          let phone = '';
+          let website = '';
+
+          if (place.place_id) {
+            const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=formatted_phone_number,website&key=${GOOGLE_MAPS_API_KEY}`;
+            const detailsResponse = await fetch(detailsUrl);
+
+            if (detailsResponse.ok) {
+              const detailsData = await detailsResponse.json();
+              if (detailsData.result) {
+                phone = detailsData.result.formatted_phone_number || '';
+                website = detailsData.result.website || '';
+              }
             }
           }
+
+          leads.push({
+            business_name: place.name || 'Unknown Business',
+            phone: phone,
+            email: '', // Google doesn't provide emails - will be scraped separately
+            address: place.formatted_address || '',
+            city: city.split(',')[0].trim(),
+            state: extractState(place.formatted_address || ''),
+            website: website,
+            rating: place.rating || 0,
+            reviews: place.user_ratings_total || 0,
+            place_id: place.place_id || ''
+          });
+        } catch (detailError) {
+          console.error('Error processing place:', detailError.message);
+          // Still add basic info without details
+          leads.push({
+            business_name: place.name || 'Unknown Business',
+            phone: '',
+            email: '',
+            address: place.formatted_address || '',
+            city: city.split(',')[0].trim(),
+            state: extractState(place.formatted_address || ''),
+            website: '',
+            rating: place.rating || 0,
+            reviews: place.user_ratings_total || 0,
+            place_id: place.place_id || ''
+          });
         }
-
-        leads.push({
-          business_name: place.name || 'Unknown Business',
-          phone: phone,
-          email: '', // Google doesn't provide emails
-          address: place.formatted_address || '',
-          city: city.split(',')[0].trim(),
-          state: extractState(place.formatted_address || ''),
-          website: website,
-          rating: place.rating || 0,
-          reviews: place.user_ratings_total || 0,
-          place_id: place.place_id || ''
-        });
-      } catch (detailError) {
-        console.error('Error processing place:', detailError.message);
-        // Still add basic info without details
-        leads.push({
-          business_name: place.name || 'Unknown Business',
-          phone: '',
-          email: '',
-          address: place.formatted_address || '',
-          city: city.split(',')[0].trim(),
-          state: extractState(place.formatted_address || ''),
-          website: '',
-          rating: place.rating || 0,
-          reviews: place.user_ratings_total || 0,
-          place_id: place.place_id || ''
-        });
       }
-    }
 
-    console.log(`Processed ${leads.length} leads from Google Places`);
+      // Check for next page
+      nextPageToken = searchData.next_page_token;
+      pageCount++;
+
+      // If there's a next page and we need more results, wait 2 seconds (Google requirement)
+      if (nextPageToken && leads.length < maxResults && pageCount < maxPages) {
+        console.log('Waiting for next page token to become valid...');
+        await sleep(2000);
+      }
+
+    } while (nextPageToken && leads.length < maxResults && pageCount < maxPages);
+
+    console.log(`Processed ${leads.length} total leads from Google Places (${pageCount} pages)`);
     return leads.length > 0 ? leads : null;
   } catch (error) {
     console.error('Google Places scrape error:', error.message);
@@ -329,6 +356,17 @@ exports.handler = async (event, context) => {
 
           for (const lead of realLeads) {
             try {
+              // Check if lead already exists (skip duplicates based on business name and address)
+              const existingLead = await pool.query(
+                `SELECT id FROM lf_leads WHERE user_id = $1 AND business_name = $2 AND address = $3`,
+                [decoded.userId, lead.business_name, lead.address]
+              );
+
+              if (existingLead.rows.length > 0) {
+                console.log(`Skipping duplicate: ${lead.business_name}`);
+                continue;
+              }
+
               await pool.query(
                 `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,

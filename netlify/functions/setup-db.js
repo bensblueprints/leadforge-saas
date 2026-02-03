@@ -69,6 +69,13 @@ exports.handler = async (event, context) => {
     `).catch(() => {});
     results.push('Migration: Added trial_ends_at column to lf_users');
 
+    // Add updated_at column to lf_leads (for email scraping tracking)
+    await pool.query(`
+      ALTER TABLE lf_leads
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()
+    `).catch(() => {});
+    results.push('Migration: Added updated_at column to lf_leads');
+
     // Create leads table (no foreign keys)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS lf_leads (

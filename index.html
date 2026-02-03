@@ -276,6 +276,37 @@
       font-size: 13px;
     }
 
+    .btn-mini {
+      padding: 6px 12px;
+      font-size: 11px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-mini.btn-primary {
+      background: var(--gradient-primary);
+      color: var(--bg-void);
+    }
+
+    .btn-mini.btn-outline {
+      background: transparent;
+      color: var(--accent-primary);
+      border: 1px solid var(--accent-primary);
+    }
+
+    .btn-mini.btn-outline:hover {
+      background: var(--accent-primary);
+      color: var(--bg-void);
+    }
+
+    .btn-mini:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .btn-icon {
       width: 40px;
       height: 40px;
@@ -1166,6 +1197,11 @@
     .badge-info {
       background: rgba(0, 229, 255, 0.1);
       color: var(--accent-primary);
+    }
+
+    .badge-neutral {
+      background: rgba(136, 136, 160, 0.1);
+      color: var(--text-secondary);
     }
 
     /* Settings */
@@ -2544,21 +2580,36 @@
                 <th>Phone</th>
                 <th>City</th>
                 <th>Industry</th>
-                <th>GHL</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               ${state.leads.map(lead => `
-                <tr>
-                  <td><strong>${lead.business_name}</strong></td>
-                  <td>${lead.email || '-'}</td>
+                <tr data-lead-id="${lead.id}">
+                  <td>
+                    <strong>${lead.business_name}</strong>
+                    ${lead.website ? `<br><a href="${lead.website}" target="_blank" style="font-size: 11px; color: var(--accent-primary);">Visit Website</a>` : ''}
+                  </td>
+                  <td id="email-cell-${lead.id}">
+                    ${lead.email
+                      ? `<span style="color: var(--accent-tertiary);">${lead.email}</span>`
+                      : `<button class="btn-mini btn-outline" onclick="scrapeEmailForLead(${lead.id})" id="scrape-btn-${lead.id}">
+                           Scrape for Email
+                         </button>`
+                    }
+                  </td>
                   <td>${lead.phone || '-'}</td>
                   <td>${lead.city || '-'}</td>
-                  <td>${lead.industry || '-'}</td>
-                  <td>
-                    <span class="badge ${lead.ghl_synced ? 'badge-success' : 'badge-warning'}">
-                      ${lead.ghl_synced ? '&#x2713; Synced' : 'Not synced'}
-                    </span>
+                  <td><span class="badge badge-neutral">${lead.industry || '-'}</span></td>
+                  <td id="action-cell-${lead.id}">
+                    ${lead.email
+                      ? (lead.ghl_synced
+                          ? `<span class="badge badge-success">&#x2713; Synced</span>`
+                          : `<button class="btn-mini btn-primary" onclick="startFlowForLead(${lead.id})">
+                               Start Flow
+                             </button>`)
+                      : `<span class="badge badge-warning">Need email first</span>`
+                    }
                   </td>
                 </tr>
               `).join('')}
@@ -2566,6 +2617,109 @@
           </table>
         </div>
       `;
+    }
+
+    // Scrape email for a specific lead
+    async function scrapeEmailForLead(leadId) {
+      const btn = document.getElementById(`scrape-btn-${leadId}`);
+      if (btn) {
+        btn.innerHTML = 'Scraping...';
+        btn.disabled = true;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/scrape-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ leadId })
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.email) {
+          // Update the email cell
+          const emailCell = document.getElementById(`email-cell-${leadId}`);
+          emailCell.innerHTML = `<span style="color: var(--accent-tertiary);">${data.email}</span>`;
+
+          // Update the action cell to show Start Flow button
+          const actionCell = document.getElementById(`action-cell-${leadId}`);
+          actionCell.innerHTML = `
+            <button class="btn-mini btn-primary" onclick="startFlowForLead(${leadId})">
+              Start Flow
+            </button>
+          `;
+
+          // Update state
+          const lead = state.leads.find(l => l.id === leadId);
+          if (lead) lead.email = data.email;
+
+          showToast('success', `Email found: ${data.email}`);
+        } else {
+          // Show possible emails or failure message
+          if (btn) {
+            btn.innerHTML = 'Scrape for Email';
+            btn.disabled = false;
+          }
+
+          if (data.possibleEmails && data.possibleEmails.length > 0) {
+            showToast('info', `No email found. Try: ${data.possibleEmails[0]}`);
+          } else {
+            showToast('warning', data.message || 'Could not find email');
+          }
+        }
+      } catch (error) {
+        if (btn) {
+          btn.innerHTML = 'Scrape for Email';
+          btn.disabled = false;
+        }
+        showToast('error', 'Failed to scrape email');
+      }
+    }
+
+    // Start flow for a lead (sync to GHL)
+    async function startFlowForLead(leadId) {
+      const actionCell = document.getElementById(`action-cell-${leadId}`);
+      actionCell.innerHTML = '<span class="badge badge-neutral">Syncing...</span>';
+
+      try {
+        const response = await fetch(`${API_BASE}/ghl-sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ leadIds: [leadId], startFlow: true })
+        });
+
+        const data = await response.json();
+
+        if (data.success || response.ok) {
+          actionCell.innerHTML = `<span class="badge badge-success">&#x2713; Flow Started</span>`;
+
+          // Update state
+          const lead = state.leads.find(l => l.id === leadId);
+          if (lead) lead.ghl_synced = true;
+
+          showToast('success', 'Lead synced to GoHighLevel! Flow started.');
+        } else {
+          actionCell.innerHTML = `
+            <button class="btn-mini btn-primary" onclick="startFlowForLead(${leadId})">
+              Start Flow
+            </button>
+          `;
+          showToast('error', data.error || 'Failed to start flow');
+        }
+      } catch (error) {
+        actionCell.innerHTML = `
+          <button class="btn-mini btn-primary" onclick="startFlowForLead(${leadId})">
+            Start Flow
+          </button>
+        `;
+        showToast('error', 'Failed to sync with GoHighLevel');
+      }
     }
 
     // ===== CITY INPUT =====
