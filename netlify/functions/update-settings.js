@@ -49,7 +49,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { ghlApiKey, ghlLocationId, ghlAutoSync, ghlPipelineId, name, company } = JSON.parse(event.body);
+    const { ghlApiKey, ghlLocationId, ghlAutoSync, ghlPipelineId, resendApiKey, webhookUrl, name, company } = JSON.parse(event.body);
 
     // Update user profile if provided
     if (name !== undefined || company !== undefined) {
@@ -75,38 +75,57 @@ exports.handler = async (event, context) => {
       );
     }
 
-    // Update GHL settings if provided
-    if (ghlApiKey !== undefined || ghlLocationId !== undefined || ghlAutoSync !== undefined || ghlPipelineId !== undefined) {
-      const ghlUpdates = [];
-      const ghlValues = [];
-      let ghlParamIndex = 1;
+    // Update settings if provided
+    if (ghlApiKey !== undefined || ghlLocationId !== undefined || ghlAutoSync !== undefined || ghlPipelineId !== undefined || resendApiKey !== undefined || webhookUrl !== undefined) {
+      // First ensure settings row exists
+      await pool.query(
+        `INSERT INTO lf_user_settings (user_id, created_at, updated_at) VALUES ($1, NOW(), NOW())
+         ON CONFLICT (user_id) DO NOTHING`,
+        [decoded.userId]
+      );
+
+      const settingsUpdates = [];
+      const settingsValues = [];
+      let paramIndex = 1;
 
       if (ghlApiKey !== undefined) {
-        ghlUpdates.push(`ghl_api_key = $${ghlParamIndex}`);
-        ghlValues.push(ghlApiKey);
-        ghlParamIndex++;
+        settingsUpdates.push(`ghl_api_key = $${paramIndex}`);
+        settingsValues.push(ghlApiKey);
+        paramIndex++;
       }
       if (ghlLocationId !== undefined) {
-        ghlUpdates.push(`ghl_location_id = $${ghlParamIndex}`);
-        ghlValues.push(ghlLocationId);
-        ghlParamIndex++;
+        settingsUpdates.push(`ghl_location_id = $${paramIndex}`);
+        settingsValues.push(ghlLocationId);
+        paramIndex++;
       }
       if (ghlAutoSync !== undefined) {
-        ghlUpdates.push(`ghl_auto_sync = $${ghlParamIndex}`);
-        ghlValues.push(ghlAutoSync);
-        ghlParamIndex++;
+        settingsUpdates.push(`ghl_auto_sync = $${paramIndex}`);
+        settingsValues.push(ghlAutoSync);
+        paramIndex++;
       }
       if (ghlPipelineId !== undefined) {
-        ghlUpdates.push(`ghl_pipeline_id = $${ghlParamIndex}`);
-        ghlValues.push(ghlPipelineId);
-        ghlParamIndex++;
+        settingsUpdates.push(`ghl_pipeline_id = $${paramIndex}`);
+        settingsValues.push(ghlPipelineId);
+        paramIndex++;
+      }
+      if (resendApiKey !== undefined) {
+        settingsUpdates.push(`resend_api_key = $${paramIndex}`);
+        settingsValues.push(resendApiKey);
+        paramIndex++;
+      }
+      if (webhookUrl !== undefined) {
+        settingsUpdates.push(`webhook_url = $${paramIndex}`);
+        settingsValues.push(webhookUrl);
+        paramIndex++;
       }
 
-      ghlValues.push(decoded.userId);
-      await pool.query(
-        `UPDATE lf_user_settings SET ${ghlUpdates.join(', ')}, updated_at = NOW() WHERE user_id = $${ghlParamIndex}`,
-        ghlValues
-      );
+      if (settingsUpdates.length > 0) {
+        settingsValues.push(decoded.userId);
+        await pool.query(
+          `UPDATE lf_user_settings SET ${settingsUpdates.join(', ')}, updated_at = NOW() WHERE user_id = $${paramIndex}`,
+          settingsValues
+        );
+      }
     }
 
     // Fetch updated data
@@ -115,7 +134,7 @@ exports.handler = async (event, context) => {
       [decoded.userId]
     );
     const settingsResult = await pool.query(
-      'SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id FROM lf_user_settings WHERE user_id = $1',
+      'SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id, resend_api_key, webhook_url FROM lf_user_settings WHERE user_id = $1',
       [decoded.userId]
     );
 
@@ -138,10 +157,14 @@ exports.handler = async (event, context) => {
           leadsLimit: user.leads_limit
         },
         settings: {
-          ghlApiKey: settings.ghl_api_key ? '********' + settings.ghl_api_key.slice(-4) : null,
+          ghlApiKey: settings.ghl_api_key ? '••••••••' : null,
           ghlLocationId: settings.ghl_location_id,
           ghlAutoSync: settings.ghl_auto_sync,
-          ghlPipelineId: settings.ghl_pipeline_id
+          ghlPipelineId: settings.ghl_pipeline_id,
+          resendApiKey: settings.resend_api_key ? '••••••••' : null,
+          webhookUrl: settings.webhook_url,
+          hasGhlKey: !!settings.ghl_api_key,
+          hasResendKey: !!settings.resend_api_key
         }
       })
     };

@@ -1708,15 +1708,30 @@
             </div>
           </div>
 
-          <div class="panel">
-            <div class="panel-header">
-              <h3 class="panel-title">Recent Activity</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div class="panel">
+              <div class="panel-header">
+                <h3 class="panel-title">Recent Activity</h3>
+              </div>
+              <div class="panel-body" id="recentActivity">
+                <div class="empty-state">
+                  <div class="empty-state-icon">&#x1F4C8;</div>
+                  <div class="empty-state-title">No activity yet</div>
+                  <div class="empty-state-text">Start scraping leads to see your activity here</div>
+                </div>
+              </div>
             </div>
-            <div class="panel-body" id="recentActivity">
-              <div class="empty-state">
-                <div class="empty-state-icon">&#x1F4C8;</div>
-                <div class="empty-state-title">No activity yet</div>
-                <div class="empty-state-text">Start scraping leads to see your activity here</div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h3 class="panel-title">Top Industries</h3>
+              </div>
+              <div class="panel-body" id="topIndustries">
+                <div class="empty-state">
+                  <div class="empty-state-icon">&#x1F3ED;</div>
+                  <div class="empty-state-title">No data yet</div>
+                  <div class="empty-state-text">Scrape leads to see industry breakdown</div>
+                </div>
               </div>
             </div>
           </div>
@@ -1825,9 +1840,14 @@
               <h1 class="page-title">My Leads</h1>
               <p class="page-subtitle">View and manage all your scraped leads</p>
             </div>
-            <button class="btn btn-secondary">
-              <span>&#x1F4E5;</span> Export All
-            </button>
+            <div style="display: flex; gap: 12px;">
+              <button class="btn btn-secondary" onclick="exportAllLeadsToCsv()">
+                <span>&#x1F4E5;</span> Export All
+              </button>
+              <button class="btn btn-primary" onclick="syncAllToGhl()">
+                <span>&#x1F504;</span> Sync All to GHL
+              </button>
+            </div>
           </div>
 
           <div class="panel">
@@ -1925,7 +1945,7 @@
           <div class="page-header">
             <div>
               <h1 class="page-title">Settings</h1>
-              <p class="page-subtitle">Manage your account preferences</p>
+              <p class="page-subtitle">Manage your account preferences and integrations</p>
             </div>
           </div>
 
@@ -1938,7 +1958,15 @@
                     <div class="settings-label">Full Name</div>
                   </div>
                   <div class="settings-input-col">
-                    <input type="text" class="form-input" id="settingsName" value="Ben">
+                    <input type="text" class="form-input" id="settingsName" placeholder="Your name">
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-label-col">
+                    <div class="settings-label">Company</div>
+                  </div>
+                  <div class="settings-input-col">
+                    <input type="text" class="form-input" id="settingsCompany" placeholder="Your company">
                   </div>
                 </div>
                 <div class="settings-row">
@@ -1946,7 +1974,56 @@
                     <div class="settings-label">Email</div>
                   </div>
                   <div class="settings-input-col">
-                    <input type="email" class="form-input" id="settingsEmail" value="ben@example.com" disabled>
+                    <input type="email" class="form-input" id="settingsEmail" disabled>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-label-col"></div>
+                  <div class="settings-input-col">
+                    <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section">
+                <div class="settings-section-title">Email Integration (Resend)</div>
+                <div class="settings-row">
+                  <div class="settings-label-col">
+                    <div class="settings-label">Resend API Key</div>
+                    <div class="settings-hint">Connect Resend to send email campaigns to your leads. Get your API key at <a href="https://resend.com" target="_blank" style="color: var(--accent-primary);">resend.com</a></div>
+                  </div>
+                  <div class="settings-input-col">
+                    <div class="api-key-input">
+                      <input type="password" class="form-input" id="resendApiKey" placeholder="re_xxxxxxxxxxxx">
+                      <button class="btn btn-secondary" onclick="saveResendKey()">Save</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-label-col">
+                    <div class="settings-label">Connection Status</div>
+                  </div>
+                  <div class="settings-input-col">
+                    <div id="resendStatus" style="display: flex; align-items: center; gap: 12px;">
+                      <span class="badge badge-warning">Not Connected</span>
+                      <span style="color: var(--text-secondary); font-size: 14px;">Enter your API key to connect</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section">
+                <div class="settings-section-title">Webhooks</div>
+                <div class="settings-row">
+                  <div class="settings-label-col">
+                    <div class="settings-label">Webhook URL</div>
+                    <div class="settings-hint">Receive real-time notifications when new leads are scraped</div>
+                  </div>
+                  <div class="settings-input-col">
+                    <div class="api-key-input">
+                      <input type="url" class="form-input" id="webhookUrl" placeholder="https://your-webhook-url.com/endpoint">
+                      <button class="btn btn-secondary" onclick="saveWebhookUrl()">Save</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2260,16 +2337,28 @@
           headers: { 'Authorization': `Bearer ${state.token}` }
         });
         if (statsRes.ok) {
-          const stats = await statsRes.json();
+          const data = await statsRes.json();
+          const stats = data.stats || {};
           document.getElementById('statTotalLeads').textContent = stats.totalLeads || 0;
           document.getElementById('statCitiesScraped').textContent = stats.citiesScraped || 0;
-          document.getElementById('statVerifiedEmails').textContent = stats.verifiedEmails || 0;
-          document.getElementById('statGhlSynced').textContent = stats.ghlSynced || 0;
+          document.getElementById('statVerifiedEmails').textContent = stats.syncedLeads || 0; // Using synced as verified proxy
+          document.getElementById('statGhlSynced').textContent = stats.syncedLeads || 0;
 
-          // Update user plan display
-          if (stats.user) {
-            state.user = { ...state.user, ...stats.user };
+          // Update user info from stats response
+          if (data.user) {
+            state.user = { ...state.user, ...data.user };
             localStorage.setItem('leadforge_user', JSON.stringify(state.user));
+            updateUserUI();
+          }
+
+          // Render recent activity if available
+          if (data.activity && data.activity.length > 0) {
+            renderRecentActivity(data.activity);
+          }
+
+          // Render top industries if available
+          if (data.topIndustries && data.topIndustries.length > 0) {
+            renderTopIndustries(data.topIndustries);
           }
         }
 
@@ -2292,16 +2381,19 @@
           renderAllLeads();
         }
 
-        // Load user settings for GHL config
+        // Load user settings for GHL and Resend config
         const settingsRes = await fetch(`${API_BASE}/get-settings`, {
           headers: { 'Authorization': `Bearer ${state.token}` }
         });
         if (settingsRes.ok) {
           const settings = await settingsRes.json();
-          if (settings.ghl_api_key) {
-            state.ghlConfig.apiKey = settings.ghl_api_key;
+
+          // GHL Configuration
+          if (settings.hasGhlKey) {
+            state.ghlConfig.apiKey = 'configured';
             state.ghlConfig.locationId = settings.ghl_location_id || '';
             state.ghlConfig.autoSync = settings.ghl_auto_sync || false;
+            state.ghlConfig.pipelineId = settings.ghl_pipeline_id || '';
 
             document.getElementById('ghlApiKey').value = '••••••••••••••••';
             document.getElementById('ghlLocationId').value = state.ghlConfig.locationId;
@@ -2311,10 +2403,74 @@
               <span style="color: var(--text-secondary); font-size: 14px;">Ready to sync leads</span>
             `;
           }
+
+          // Resend Configuration
+          if (settings.hasResendKey) {
+            state.resendConfig = { apiKey: 'configured' };
+            const resendKeyInput = document.getElementById('resendApiKey');
+            if (resendKeyInput) {
+              resendKeyInput.value = '••••••••••••••••';
+            }
+            const resendStatus = document.getElementById('resendStatus');
+            if (resendStatus) {
+              resendStatus.innerHTML = `
+                <span class="badge badge-success">Connected</span>
+                <span style="color: var(--text-secondary); font-size: 14px;">Ready to send emails</span>
+              `;
+            }
+          }
+
+          // Webhook URL
+          if (settings.webhook_url) {
+            const webhookInput = document.getElementById('webhookUrl');
+            if (webhookInput) {
+              webhookInput.value = settings.webhook_url;
+            }
+          }
         }
       } catch (err) {
         console.error('Failed to load user data:', err);
       }
+    }
+
+    function renderRecentActivity(activity) {
+      const container = document.getElementById('recentActivity');
+      if (!container) return;
+
+      if (activity.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No recent activity</p>';
+        return;
+      }
+
+      container.innerHTML = activity.map(item => `
+        <div class="activity-item" style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border-subtle);">
+          <span style="color: var(--text-secondary);">${new Date(item.date).toLocaleDateString()}</span>
+          <span style="color: var(--accent-primary); font-weight: 600;">${item.count} leads</span>
+        </div>
+      `).join('');
+    }
+
+    function renderTopIndustries(industries) {
+      const container = document.getElementById('topIndustries');
+      if (!container) return;
+
+      if (industries.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No industry data yet</p>';
+        return;
+      }
+
+      const maxCount = Math.max(...industries.map(i => parseInt(i.count)));
+      container.innerHTML = industries.map(item => `
+        <div class="industry-item" style="margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="color: var(--text-primary);">${item.industry}</span>
+            <span style="color: var(--text-secondary);">${item.count}</span>
+          </div>
+          <div style="background: var(--bg-elevated); height: 6px; border-radius: 3px; overflow: hidden;">
+            <div style="background: var(--gradient-primary); height: 100%; width: ${(parseInt(item.count) / maxCount) * 100}%;"></div>
+          </div>
+        </div>
+      `).join('');
     }
 
     function renderAllLeads() {
@@ -2437,6 +2593,12 @@
           renderCityTags();
           updateScrapeButton();
         });
+      }
+
+      // GHL auto-sync toggle
+      const autoSyncToggle = document.getElementById('ghlAutoSync');
+      if (autoSyncToggle) {
+        autoSyncToggle.addEventListener('change', saveGhlAutoSync);
       }
     });
 
@@ -2647,6 +2809,84 @@
       showToast('success', 'Leads exported to CSV!');
     }
 
+    function exportAllLeadsToCsv() {
+      if (!state.leads || state.leads.length === 0) {
+        showToast('info', 'No leads to export');
+        return;
+      }
+
+      const headers = ['Business Name', 'Email', 'Phone', 'Address', 'City', 'State', 'Industry', 'Website', 'Rating', 'Reviews', 'GHL Synced', 'Created At'];
+      const rows = state.leads.map(l => [
+        `"${(l.business_name || '').replace(/"/g, '""')}"`,
+        l.email || '',
+        l.phone || '',
+        `"${(l.address || '').replace(/"/g, '""')}"`,
+        l.city || '',
+        l.state || '',
+        l.industry || '',
+        l.website || '',
+        l.rating || '',
+        l.reviews || '',
+        l.ghl_synced ? 'Yes' : 'No',
+        l.created_at || ''
+      ]);
+
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leadforge_all_leads_${Date.now()}.csv`;
+      a.click();
+
+      showToast('success', `${state.leads.length} leads exported to CSV!`);
+    }
+
+    async function syncAllToGhl() {
+      if (!state.ghlConfig.apiKey || state.ghlConfig.apiKey === '') {
+        showToast('error', 'Please configure your GHL API key first.');
+        showDashboardView('ghl');
+        return;
+      }
+
+      if (!state.leads || state.leads.length === 0) {
+        showToast('info', 'No leads to sync');
+        return;
+      }
+
+      const unsyncedLeads = state.leads.filter(l => !l.ghl_synced);
+      if (unsyncedLeads.length === 0) {
+        showToast('info', 'All leads are already synced to GHL');
+        return;
+      }
+
+      showToast('info', `Syncing ${unsyncedLeads.length} leads to GoHighLevel...`);
+
+      try {
+        const leadIds = unsyncedLeads.map(l => l.id);
+        const response = await fetch(`${API_BASE}/ghl-sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ leadIds })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Sync failed');
+        }
+
+        await loadUserData();
+        showToast('success', `${data.syncedCount || unsyncedLeads.length} leads synced to GoHighLevel!`);
+      } catch (error) {
+        showToast('error', error.message);
+      }
+    }
+
     async function syncToGhl() {
       if (!state.ghlConfig.apiKey) {
         showToast('error', 'Please configure your GHL API key first.');
@@ -2717,7 +2957,7 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${state.token}`
           },
-          body: JSON.stringify({ ghl_api_key: key })
+          body: JSON.stringify({ ghlApiKey: key })
         });
 
         if (!response.ok) {
@@ -2753,7 +2993,7 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${state.token}`
           },
-          body: JSON.stringify({ ghl_location_id: locationId })
+          body: JSON.stringify({ ghlLocationId: locationId })
         });
 
         if (!response.ok) {
@@ -2763,6 +3003,141 @@
 
         state.ghlConfig.locationId = locationId;
         showToast('success', 'Location ID saved!');
+      } catch (error) {
+        showToast('error', error.message);
+      }
+    }
+
+    async function saveGhlAutoSync() {
+      const autoSync = document.getElementById('ghlAutoSync').checked;
+
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/update-settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ ghlAutoSync: autoSync })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save');
+        }
+
+        state.ghlConfig.autoSync = autoSync;
+        showToast('success', 'Auto-sync setting saved!');
+      } catch (error) {
+        showToast('error', error.message);
+      }
+    }
+
+    // ===== RESEND SETTINGS =====
+    async function saveResendKey() {
+      const key = document.getElementById('resendApiKey').value;
+      if (!key || key.includes('••')) return;
+
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/update-settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ resendApiKey: key })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save');
+        }
+
+        state.resendConfig = { apiKey: key };
+        document.getElementById('resendApiKey').value = '••••••••••••••••';
+        document.getElementById('resendStatus').innerHTML = `
+          <span class="badge badge-success">Connected</span>
+          <span style="color: var(--text-secondary); font-size: 14px;">Ready to send emails</span>
+        `;
+
+        showToast('success', 'Resend API key saved!');
+      } catch (error) {
+        showToast('error', error.message);
+      }
+    }
+
+    async function saveWebhookUrl() {
+      const url = document.getElementById('webhookUrl').value;
+
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/update-settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ webhookUrl: url })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save');
+        }
+
+        showToast('success', 'Webhook URL saved!');
+      } catch (error) {
+        showToast('error', error.message);
+      }
+    }
+
+    // ===== PROFILE SETTINGS =====
+    async function saveProfile() {
+      const name = document.getElementById('settingsName').value;
+      const company = document.getElementById('settingsCompany')?.value || '';
+
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/update-settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ name, company })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to save');
+        }
+
+        if (data.user) {
+          state.user = { ...state.user, ...data.user };
+          localStorage.setItem('leadforge_user', JSON.stringify(state.user));
+          updateUserUI();
+        }
+
+        showToast('success', 'Profile updated!');
       } catch (error) {
         showToast('error', error.message);
       }

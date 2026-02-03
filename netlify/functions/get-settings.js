@@ -50,7 +50,7 @@ exports.handler = async (event, context) => {
 
   try {
     const result = await pool.query(
-      `SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id
+      `SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id, resend_api_key, webhook_url
        FROM lf_user_settings WHERE user_id = $1`,
       [decoded.userId]
     );
@@ -59,7 +59,15 @@ exports.handler = async (event, context) => {
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({})
+        body: JSON.stringify({
+          ghl_api_key: null,
+          ghl_location_id: null,
+          ghl_auto_sync: false,
+          resend_api_key: null,
+          webhook_url: null,
+          hasGhlKey: false,
+          hasResendKey: false
+        })
       };
     }
 
@@ -73,7 +81,10 @@ exports.handler = async (event, context) => {
         ghl_location_id: settings.ghl_location_id,
         ghl_auto_sync: settings.ghl_auto_sync,
         ghl_pipeline_id: settings.ghl_pipeline_id,
-        hasGhlKey: !!settings.ghl_api_key
+        resend_api_key: settings.resend_api_key ? '••••••••' : null,
+        webhook_url: settings.webhook_url,
+        hasGhlKey: !!settings.ghl_api_key,
+        hasResendKey: !!settings.resend_api_key
       })
     };
   } catch (error) {

@@ -45,12 +45,22 @@ exports.handler = async (event, context) => {
         ghl_location_id VARCHAR(255),
         ghl_auto_sync BOOLEAN DEFAULT false,
         ghl_pipeline_id VARCHAR(255),
+        resend_api_key VARCHAR(255),
+        webhook_url VARCHAR(500),
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(user_id)
       )
     `);
     results.push('Created lf_user_settings table');
+
+    // Add resend_api_key column if it doesn't exist (migration)
+    await pool.query(`
+      ALTER TABLE lf_user_settings
+      ADD COLUMN IF NOT EXISTS resend_api_key VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS webhook_url VARCHAR(500)
+    `).catch(() => {});
+    results.push('Migration: Added resend_api_key and webhook_url columns');
 
     // Create leads table (no foreign keys)
     await pool.query(`
