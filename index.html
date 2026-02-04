@@ -3921,7 +3921,7 @@
             'Authorization': `Bearer ${state.token}`
           },
           body: JSON.stringify({
-            ghlIndustryPipelines: JSON.stringify(state.ghlConfig.industryPipelines)
+            ghlIndustryPipelines: state.ghlConfig.industryPipelines
           })
         });
 

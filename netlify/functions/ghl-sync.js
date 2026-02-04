@@ -176,10 +176,19 @@ exports.handler = async (event, context) => {
     let industryPipelines = {};
     try {
       if (settings.ghl_industry_pipelines) {
-        industryPipelines = JSON.parse(settings.ghl_industry_pipelines);
+        let parsed = settings.ghl_industry_pipelines;
+        // Handle double-stringified data (legacy fix)
+        if (typeof parsed === 'string') {
+          parsed = JSON.parse(parsed);
+        }
+        if (typeof parsed === 'string') {
+          parsed = JSON.parse(parsed);
+        }
+        industryPipelines = parsed;
+        console.log('Parsed industry pipelines:', JSON.stringify(industryPipelines));
       }
     } catch (e) {
-      console.error('Failed to parse industry pipelines:', e);
+      console.error('Failed to parse industry pipelines:', e, 'Raw value:', settings.ghl_industry_pipelines);
     }
 
     // Get leads to sync
@@ -224,15 +233,22 @@ exports.handler = async (event, context) => {
         // Check for industry-specific pipeline (case-insensitive matching)
         if (lead.industry && Object.keys(industryPipelines).length > 0) {
           const leadIndustry = lead.industry.toLowerCase().trim();
+          console.log(`Matching lead industry "${leadIndustry}" against configured industries:`, Object.keys(industryPipelines));
+
           for (const [configuredIndustry, configuredValue] of Object.entries(industryPipelines)) {
-            if (configuredIndustry.toLowerCase().trim() === leadIndustry ||
-                leadIndustry.includes(configuredIndustry.toLowerCase().trim()) ||
-                configuredIndustry.toLowerCase().trim().includes(leadIndustry)) {
+            const configLower = configuredIndustry.toLowerCase().trim();
+            const isMatch = configLower === leadIndustry ||
+                leadIndustry.includes(configLower) ||
+                configLower.includes(leadIndustry);
+
+            if (isMatch) {
+              console.log(`MATCH FOUND: "${leadIndustry}" matches "${configuredIndustry}"`);
               // Support both old format (string) and new format (object)
-              if (typeof configuredValue === 'object') {
-                pipelineId = configuredValue.pipelineId || null;
-                stageId = configuredValue.stageId || null;
-              } else {
+              if (typeof configuredValue === 'object' && configuredValue !== null) {
+                pipelineId = configuredValue.pipelineId || pipelineId;
+                stageId = configuredValue.stageId || stageId;
+                console.log(`Using industry pipeline: ${pipelineId}, stage: ${stageId}`);
+              } else if (typeof configuredValue === 'string') {
                 pipelineId = configuredValue;
                 stageId = null;
               }
@@ -240,6 +256,8 @@ exports.handler = async (event, context) => {
             }
           }
         }
+
+        console.log(`Final pipeline for lead ${lead.id} (${lead.industry}): pipeline=${pipelineId}, stage=${stageId}`);
 
         const ghlContact = await createGHLContact(
           settings.ghl_api_key,
