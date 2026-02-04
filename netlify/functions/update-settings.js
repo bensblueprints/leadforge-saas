@@ -49,7 +49,7 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { ghlApiKey, ghlLocationId, ghlAutoSync, ghlPipelineId, ghlIndustryPipelines, resendApiKey, webhookUrl, name, company } = JSON.parse(event.body);
+    const { ghlApiKey, ghlLocationId, ghlAutoSync, ghlPipelineId, ghlStageId, ghlIndustryPipelines, resendApiKey, webhookUrl, name, company } = JSON.parse(event.body);
 
     // Update user profile if provided
     if (name !== undefined || company !== undefined) {
@@ -76,7 +76,7 @@ exports.handler = async (event, context) => {
     }
 
     // Update settings if provided
-    if (ghlApiKey !== undefined || ghlLocationId !== undefined || ghlAutoSync !== undefined || ghlPipelineId !== undefined || ghlIndustryPipelines !== undefined || resendApiKey !== undefined || webhookUrl !== undefined) {
+    if (ghlApiKey !== undefined || ghlLocationId !== undefined || ghlAutoSync !== undefined || ghlPipelineId !== undefined || ghlStageId !== undefined || ghlIndustryPipelines !== undefined || resendApiKey !== undefined || webhookUrl !== undefined) {
       // First ensure settings row exists
       await pool.query(
         `INSERT INTO lf_user_settings (user_id, created_at, updated_at) VALUES ($1, NOW(), NOW())
@@ -106,6 +106,11 @@ exports.handler = async (event, context) => {
       if (ghlPipelineId !== undefined) {
         settingsUpdates.push(`ghl_pipeline_id = $${paramIndex}`);
         settingsValues.push(ghlPipelineId);
+        paramIndex++;
+      }
+      if (ghlStageId !== undefined) {
+        settingsUpdates.push(`ghl_stage_id = $${paramIndex}`);
+        settingsValues.push(ghlStageId);
         paramIndex++;
       }
       if (resendApiKey !== undefined) {
@@ -139,7 +144,7 @@ exports.handler = async (event, context) => {
       [decoded.userId]
     );
     const settingsResult = await pool.query(
-      'SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id, ghl_industry_pipelines, resend_api_key, webhook_url FROM lf_user_settings WHERE user_id = $1',
+      'SELECT ghl_api_key, ghl_location_id, ghl_auto_sync, ghl_pipeline_id, ghl_stage_id, ghl_industry_pipelines, resend_api_key, webhook_url FROM lf_user_settings WHERE user_id = $1',
       [decoded.userId]
     );
 
@@ -166,6 +171,7 @@ exports.handler = async (event, context) => {
           ghlLocationId: settings.ghl_location_id,
           ghlAutoSync: settings.ghl_auto_sync,
           ghlPipelineId: settings.ghl_pipeline_id,
+          ghlStageId: settings.ghl_stage_id,
           ghlIndustryPipelines: settings.ghl_industry_pipelines ? JSON.parse(settings.ghl_industry_pipelines) : {},
           resendApiKey: settings.resend_api_key ? '••••••••' : null,
           webhookUrl: settings.webhook_url,

@@ -1504,6 +1504,8 @@
       }
     }
   </style>
+  <!-- Airwallex SDK -->
+  <script src="https://checkout.airwallex.com/assets/elements.bundle.min.js"></script>
 </head>
 <body>
   <div class="neural-grid"></div>
@@ -2050,6 +2052,17 @@
                     </div>
                   </div>
                 </div>
+                <div class="settings-row" style="margin-top: 16px;">
+                  <div class="settings-label-col">
+                    <div class="settings-label">Load Pipelines</div>
+                    <div class="settings-hint">After saving your API key and Location ID, click to load your pipelines</div>
+                  </div>
+                  <div class="settings-input-col">
+                    <button class="btn btn-primary" id="fetchPipelinesBtn" onclick="fetchGhlPipelines()">
+                      Fetch Pipelines from GHL
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div class="settings-section">
@@ -2073,8 +2086,21 @@
                   </div>
                   <div class="settings-input-col">
                     <div class="select-wrapper">
-                      <select class="form-select" id="ghlPipeline">
-                        <option value="">Connect GHL first...</option>
+                      <select class="form-select" id="ghlPipeline" onchange="onPipelineChange()">
+                        <option value="">-- Select Pipeline --</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-label-col">
+                    <div class="settings-label">Default Stage</div>
+                    <div class="settings-hint">Select the stage where new leads will start</div>
+                  </div>
+                  <div class="settings-input-col">
+                    <div class="select-wrapper">
+                      <select class="form-select" id="ghlStage" onchange="saveDefaultPipelineAndStage()">
+                        <option value="">-- Select Stage --</option>
                       </select>
                     </div>
                   </div>
@@ -2269,29 +2295,77 @@
               </div>
 
               <div class="settings-section">
-                <div class="settings-section-title">Upgrade Your Plan</div>
+                <div class="settings-section-title">Start Your Trial</div>
+                <div style="padding: 24px; background: linear-gradient(135deg, rgba(0, 229, 255, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%); border-radius: 12px; border: 2px solid var(--accent-primary); margin-bottom: 24px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                    <div>
+                      <div style="font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 700; margin-bottom: 4px;">7-Day Full Access Trial</div>
+                      <div style="color: var(--text-secondary);">Try everything LeadForge has to offer</div>
+                      <ul style="list-style: none; margin-top: 12px; font-size: 14px; color: var(--text-secondary);">
+                        <li style="padding: 4px 0;">&#x2713; 500 leads included</li>
+                        <li style="padding: 4px 0;">&#x2713; GHL integration</li>
+                        <li style="padding: 4px 0;">&#x2713; CSV export</li>
+                        <li style="padding: 4px 0;">&#x2713; Email scraping</li>
+                      </ul>
+                    </div>
+                    <div style="text-align: center;">
+                      <div style="font-family: 'Space Mono', monospace; font-size: 48px; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">$1</div>
+                      <div style="font-size: 14px; color: var(--text-muted);">for 7 days</div>
+                      <button class="btn btn-primary" style="margin-top: 12px; padding: 12px 32px;" onclick="upgradePlan('trial_start')">Start Trial</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-section">
+                <div class="settings-section-title">Monthly Plans</div>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                  <div style="padding: 24px; background: var(--bg-elevated); border-radius: 12px; border: 2px solid var(--accent-primary);">
-                    <div style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Professional</div>
-                    <div style="font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; margin-bottom: 12px;">$97<span style="font-size: 14px; color: var(--text-muted);">/mo</span></div>
+                  <div style="padding: 24px; background: var(--bg-elevated); border-radius: 12px; border: 1px solid var(--border-medium);">
+                    <div style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Basic</div>
+                    <div style="font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; margin-bottom: 12px;">$29<span style="font-size: 14px; color: var(--text-muted);">/mo</span></div>
                     <ul style="list-style: none; margin-bottom: 20px; font-size: 14px; color: var(--text-secondary);">
-                      <li style="padding: 6px 0;">&#x2713; 5,000 leads/month</li>
-                      <li style="padding: 6px 0;">&#x2713; Unlimited cities</li>
-                      <li style="padding: 6px 0;">&#x2713; GHL integration</li>
+                      <li style="padding: 6px 0;">&#x2713; 500 leads/month</li>
+                      <li style="padding: 6px 0;">&#x2713; GHL sync</li>
+                      <li style="padding: 6px 0;">&#x2713; CSV export</li>
+                      <li style="padding: 6px 0;">&#x2713; Email support</li>
+                    </ul>
+                    <button class="btn btn-outline" style="width: 100%;" onclick="upgradePlan('basic')">Select Plan</button>
+                  </div>
+                  <div style="padding: 24px; background: var(--bg-elevated); border-radius: 12px; border: 2px solid var(--accent-primary);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                      <div style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700;">Advanced</div>
+                      <span style="background: var(--accent-primary); color: var(--bg-void); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">POPULAR</span>
+                    </div>
+                    <div style="font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; margin-bottom: 12px;">$79<span style="font-size: 14px; color: var(--text-muted);">/mo</span></div>
+                    <ul style="list-style: none; margin-bottom: 20px; font-size: 14px; color: var(--text-secondary);">
+                      <li style="padding: 6px 0;">&#x2713; 2,500 leads/month</li>
+                      <li style="padding: 6px 0;">&#x2713; Everything in Basic</li>
+                      <li style="padding: 6px 0;">&#x2713; Email verification</li>
                       <li style="padding: 6px 0;">&#x2713; Priority support</li>
                     </ul>
-                    <button class="btn btn-primary" style="width: 100%;" onclick="upgradePlan('professional')">Upgrade Now</button>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="upgradePlan('advanced')">Select Plan</button>
                   </div>
                   <div style="padding: 24px; background: var(--bg-elevated); border-radius: 12px; border: 1px solid var(--border-medium);">
+                    <div style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Premium</div>
+                    <div style="font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; margin-bottom: 12px;">$149<span style="font-size: 14px; color: var(--text-muted);">/mo</span></div>
+                    <ul style="list-style: none; margin-bottom: 20px; font-size: 14px; color: var(--text-secondary);">
+                      <li style="padding: 6px 0;">&#x2713; 10,000 leads/month</li>
+                      <li style="padding: 6px 0;">&#x2713; Everything in Advanced</li>
+                      <li style="padding: 6px 0;">&#x2713; API access</li>
+                      <li style="padding: 6px 0;">&#x2713; Webhooks</li>
+                    </ul>
+                    <button class="btn btn-outline" style="width: 100%;" onclick="upgradePlan('premium')">Select Plan</button>
+                  </div>
+                  <div style="padding: 24px; background: var(--bg-elevated); border-radius: 12px; border: 1px solid var(--accent-secondary);">
                     <div style="font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px;">Enterprise</div>
                     <div style="font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; margin-bottom: 12px;">$297<span style="font-size: 14px; color: var(--text-muted);">/mo</span></div>
                     <ul style="list-style: none; margin-bottom: 20px; font-size: 14px; color: var(--text-secondary);">
                       <li style="padding: 6px 0;">&#x2713; Unlimited leads</li>
-                      <li style="padding: 6px 0;">&#x2713; API access</li>
+                      <li style="padding: 6px 0;">&#x2713; Everything in Premium</li>
                       <li style="padding: 6px 0;">&#x2713; White-label exports</li>
                       <li style="padding: 6px 0;">&#x2713; Dedicated support</li>
                     </ul>
-                    <button class="btn btn-outline" style="width: 100%;" onclick="upgradePlan('enterprise')">Upgrade Now</button>
+                    <button class="btn btn-outline" style="width: 100%;" onclick="upgradePlan('enterprise')">Select Plan</button>
                   </div>
                 </div>
               </div>
@@ -2376,6 +2450,9 @@
       masquerade: null, // { active: bool, adminId, adminEmail }
       adminUsers: [], // For admin panel
       leads: [],
+      leadsTotal: 0,
+      leadsPage: 1,
+      leadsPerPage: 50,
       scrapedCities: [],
       selectedCities: [],
       currentResults: [],
@@ -2383,8 +2460,11 @@
         apiKey: '',
         locationId: '',
         autoSync: false,
-        industryPipelines: {} // { industry: pipelineId }
-      }
+        pipelineId: '',
+        stageId: '',
+        industryPipelines: {} // { industry: { pipelineId, stageId } }
+      },
+      ghlPipelines: [] // Available pipelines from GHL API
     };
 
     // Common industries for pipeline mapping
@@ -2403,7 +2483,38 @@
       initParticles();
       setupCityInput();
       checkAuth();
+      checkPaymentStatus();
     });
+
+    // Check URL params for payment status
+    function checkPaymentStatus() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentStatus = urlParams.get('payment');
+      const planId = urlParams.get('plan');
+      const orderId = urlParams.get('order');
+
+      if (paymentStatus === 'success') {
+        // Clear URL params
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Show success message
+        showToast('success', 'Payment successful! Your plan has been upgraded.');
+
+        // Refresh user data to get updated plan
+        setTimeout(() => {
+          checkAuth();
+          showPage('billing');
+        }, 1000);
+      } else if (paymentStatus === 'failed') {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        showToast('error', 'Payment failed. Please try again.');
+        showPage('billing');
+      } else if (paymentStatus === 'cancelled') {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        showToast('info', 'Payment was cancelled.');
+        showPage('billing');
+      }
+    }
 
     // ===== PARTICLES EFFECT =====
     function initParticles() {
@@ -2468,6 +2579,8 @@
         loadUserData();
         checkAdminStatus();
         checkMasquerade();
+        // Navigate to dashboard if user is logged in
+        showPage('dashboard');
       }
     }
 
@@ -2644,14 +2757,7 @@
         }
 
         // Load leads for My Leads view
-        const leadsRes = await fetch(`${API_BASE}/get-leads`, {
-          headers: { 'Authorization': `Bearer ${state.token}` }
-        });
-        if (leadsRes.ok) {
-          const leadsData = await leadsRes.json();
-          state.leads = leadsData.leads || [];
-          renderAllLeads();
-        }
+        await loadLeadsPage(1);
 
         // Load user settings for GHL and Resend config
         const settingsRes = await fetch(`${API_BASE}/get-settings`, {
@@ -2666,6 +2772,7 @@
             state.ghlConfig.locationId = settings.ghl_location_id || '';
             state.ghlConfig.autoSync = settings.ghl_auto_sync || false;
             state.ghlConfig.pipelineId = settings.ghl_pipeline_id || '';
+            state.ghlConfig.stageId = settings.ghl_stage_id || '';
 
             // Load industry-specific pipelines (already parsed by backend)
             state.ghlConfig.industryPipelines = settings.ghl_industry_pipelines || {};
@@ -2751,6 +2858,27 @@
       `).join('');
     }
 
+    async function loadLeadsPage(page = 1) {
+      if (!state.token) return;
+
+      state.leadsPage = page;
+      const offset = (page - 1) * state.leadsPerPage;
+
+      try {
+        const leadsRes = await fetch(`${API_BASE}/get-leads?limit=${state.leadsPerPage}&offset=${offset}`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        if (leadsRes.ok) {
+          const leadsData = await leadsRes.json();
+          state.leads = leadsData.leads || [];
+          state.leadsTotal = leadsData.total || 0;
+          renderAllLeads();
+        }
+      } catch (error) {
+        console.error('Error loading leads:', error);
+      }
+    }
+
     function renderAllLeads() {
       const container = document.getElementById('allLeads');
 
@@ -2765,7 +2893,33 @@
         return;
       }
 
+      const totalPages = Math.ceil(state.leadsTotal / state.leadsPerPage);
+      const startItem = (state.leadsPage - 1) * state.leadsPerPage + 1;
+      const endItem = Math.min(state.leadsPage * state.leadsPerPage, state.leadsTotal);
+
       container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px 16px; background: var(--bg-elevated); border-radius: 8px;">
+          <span style="color: var(--text-secondary); font-size: 14px;">
+            Showing ${startItem}-${endItem} of ${state.leadsTotal} leads
+          </span>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-sm btn-secondary" onclick="loadLeadsPage(1)" ${state.leadsPage === 1 ? 'disabled' : ''}>
+              First
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="loadLeadsPage(${state.leadsPage - 1})" ${state.leadsPage === 1 ? 'disabled' : ''}>
+              Prev
+            </button>
+            <span style="padding: 0 12px; color: var(--text-primary);">
+              Page ${state.leadsPage} of ${totalPages}
+            </span>
+            <button class="btn btn-sm btn-secondary" onclick="loadLeadsPage(${state.leadsPage + 1})" ${state.leadsPage >= totalPages ? 'disabled' : ''}>
+              Next
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="loadLeadsPage(${totalPages})" ${state.leadsPage >= totalPages ? 'disabled' : ''}>
+              Last
+            </button>
+          </div>
+        </div>
         <div class="table-wrapper">
           <table class="data-table">
             <thead>
@@ -2810,6 +2964,25 @@
               `).join('')}
             </tbody>
           </table>
+        </div>
+        <div style="display: flex; justify-content: center; margin-top: 16px; padding: 12px; background: var(--bg-elevated); border-radius: 8px;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-sm btn-secondary" onclick="loadLeadsPage(1)" ${state.leadsPage === 1 ? 'disabled' : ''}>
+              First
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="loadLeadsPage(${state.leadsPage - 1})" ${state.leadsPage === 1 ? 'disabled' : ''}>
+              Prev
+            </button>
+            <span style="padding: 0 12px; color: var(--text-primary);">
+              Page ${state.leadsPage} of ${totalPages}
+            </span>
+            <button class="btn btn-sm btn-secondary" onclick="loadLeadsPage(${state.leadsPage + 1})" ${state.leadsPage >= totalPages ? 'disabled' : ''}>
+              Next
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="loadLeadsPage(${totalPages})" ${state.leadsPage >= totalPages ? 'disabled' : ''}>
+              Last
+            </button>
+          </div>
         </div>
       `;
     }
@@ -3515,82 +3688,223 @@
       }
     }
 
+    async function fetchGhlPipelines() {
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
+
+      const btn = document.getElementById('fetchPipelinesBtn');
+      btn.innerHTML = 'Loading...';
+      btn.disabled = true;
+
+      try {
+        const response = await fetch(`${API_BASE}/ghl-pipelines`, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch pipelines');
+        }
+
+        state.ghlPipelines = data.pipelines || [];
+        populatePipelineDropdowns();
+        showToast('success', `Loaded ${state.ghlPipelines.length} pipelines from GHL!`);
+
+        // Update connection status
+        const statusDiv = document.getElementById('ghlStatus');
+        if (statusDiv) {
+          statusDiv.innerHTML = `
+            <span class="badge badge-success">Connected</span>
+            <span style="color: var(--text-secondary); font-size: 14px;">${state.ghlPipelines.length} pipelines available</span>
+          `;
+        }
+      } catch (error) {
+        showToast('error', error.message);
+      } finally {
+        btn.innerHTML = 'Fetch Pipelines from GHL';
+        btn.disabled = false;
+      }
+    }
+
+    function populatePipelineDropdowns() {
+      const defaultSelect = document.getElementById('ghlPipeline');
+      if (defaultSelect) {
+        defaultSelect.innerHTML = `
+          <option value="">-- Select Pipeline --</option>
+          ${state.ghlPipelines.map(p => `
+            <option value="${p.id}" ${state.ghlConfig.pipelineId === p.id ? 'selected' : ''}>${p.name} (${p.stages.length} stages)</option>
+          `).join('')}
+        `;
+      }
+
+      // Populate stages for selected pipeline
+      populateStageDropdown();
+
+      // Re-render industry pipelines to use dropdowns
+      renderIndustryPipelines();
+    }
+
+    function onPipelineChange() {
+      const pipelineSelect = document.getElementById('ghlPipeline');
+      state.ghlConfig.pipelineId = pipelineSelect?.value || '';
+      populateStageDropdown();
+    }
+
+    function populateStageDropdown() {
+      const stageSelect = document.getElementById('ghlStage');
+      if (!stageSelect) return;
+
+      const selectedPipeline = state.ghlPipelines.find(p => p.id === state.ghlConfig.pipelineId);
+      if (selectedPipeline && selectedPipeline.stages.length > 0) {
+        stageSelect.innerHTML = `
+          <option value="">-- Select Stage --</option>
+          ${selectedPipeline.stages.map(s => `
+            <option value="${s.id}" ${state.ghlConfig.stageId === s.id ? 'selected' : ''}>${s.name}</option>
+          `).join('')}
+        `;
+      } else {
+        stageSelect.innerHTML = '<option value="">-- Select Pipeline First --</option>';
+      }
+    }
+
+    async function saveDefaultPipelineAndStage() {
+      const pipelineSelect = document.getElementById('ghlPipeline');
+      const stageSelect = document.getElementById('ghlStage');
+      const pipelineId = pipelineSelect?.value || '';
+      const stageId = stageSelect?.value || '';
+
+      if (!state.token) {
+        showToast('error', 'Please log in first');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/update-settings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
+          body: JSON.stringify({ ghlPipelineId: pipelineId, ghlStageId: stageId })
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save');
+        }
+
+        state.ghlConfig.pipelineId = pipelineId;
+        state.ghlConfig.stageId = stageId;
+        showToast('success', 'Pipeline and stage saved!');
+      } catch (error) {
+        showToast('error', error.message);
+      }
+    }
+
     // ===== INDUSTRY PIPELINE SETTINGS =====
     function renderIndustryPipelines() {
       const container = document.getElementById('industryPipelinesContainer');
       if (!container) return;
 
-      const pipelines = state.ghlConfig.industryPipelines || {};
-      const industries = Object.keys(pipelines);
+      const configs = state.ghlConfig.industryPipelines || {};
+      const hasPipelines = state.ghlPipelines.length > 0;
 
-      if (industries.length === 0) {
-        container.innerHTML = `
-          <div style="color: var(--text-muted); font-size: 14px; padding: 16px; background: var(--bg-elevated); border-radius: 8px;">
-            No industry-specific pipelines configured. Click "Add Industry Pipeline" to set up routing.
+      // Header row
+      let html = `
+        <div style="display: flex; gap: 12px; margin-bottom: 12px; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle);">
+          <div style="width: 140px; font-weight: 600; color: var(--text-secondary); font-size: 13px;">INDUSTRY</div>
+          <div style="flex: 1; min-width: 150px; font-weight: 600; color: var(--text-secondary); font-size: 13px;">PIPELINE</div>
+          <div style="flex: 1; min-width: 150px; font-weight: 600; color: var(--text-secondary); font-size: 13px;">STAGE</div>
+        </div>
+      `;
+
+      // Industry rows
+      html += COMMON_INDUSTRIES.map(industry => {
+        const config = configs[industry] || {};
+        const pipelineId = typeof config === 'object' ? config.pipelineId : config;
+        const stageId = typeof config === 'object' ? config.stageId : '';
+        const selectedPipeline = state.ghlPipelines.find(p => p.id === pipelineId);
+        const isConfigured = !!pipelineId;
+
+        return `
+        <div class="industry-pipeline-row" style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px; padding: 10px 12px; background: ${isConfigured ? 'var(--bg-elevated)' : 'var(--bg-surface)'}; border-radius: 8px; border: 1px solid ${isConfigured ? 'var(--accent-primary)' : 'var(--border-subtle)'};">
+          <div style="width: 140px;">
+            <span style="font-weight: 500; color: ${isConfigured ? 'var(--accent-primary)' : 'var(--text-secondary)'};">${industry}</span>
           </div>
-        `;
-        return;
+          <div style="flex: 1; min-width: 150px;">
+            ${hasPipelines ? `
+              <select class="form-select" onchange="updateIndustryConfig('${industry}', 'pipeline', this.value)" style="width: 100%; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-primary);">
+                <option value="">-- Select Pipeline --</option>
+                ${state.ghlPipelines.map(p => `
+                  <option value="${p.id}" ${pipelineId === p.id ? 'selected' : ''}>${p.name}</option>
+                `).join('')}
+              </select>
+            ` : `
+              <select class="form-select" disabled style="width: 100%; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-muted);">
+                <option>Fetch pipelines first</option>
+              </select>
+            `}
+          </div>
+          <div style="flex: 1; min-width: 150px;">
+            ${hasPipelines ? `
+              <select class="form-select" onchange="updateIndustryConfig('${industry}', 'stage', this.value)" style="width: 100%; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-primary);" ${!selectedPipeline ? 'disabled' : ''}>
+                ${selectedPipeline ? `
+                  <option value="">-- First Stage --</option>
+                  ${selectedPipeline.stages.map(s => `
+                    <option value="${s.id}" ${stageId === s.id ? 'selected' : ''}>${s.name}</option>
+                  `).join('')}
+                ` : `
+                  <option value="">-- Select Pipeline First --</option>
+                `}
+              </select>
+            ` : `
+              <select class="form-select" disabled style="width: 100%; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--text-muted);">
+                <option>Fetch pipelines first</option>
+              </select>
+            `}
+          </div>
+        </div>
+      `}).join('');
+
+      container.innerHTML = html;
+    }
+
+    function updateIndustryConfig(industry, field, value) {
+      console.log('updateIndustryConfig called:', { industry, field, value });
+      console.log('state.ghlPipelines:', state.ghlPipelines);
+
+      const configs = { ...state.ghlConfig.industryPipelines } || {};
+
+      // Initialize config for this industry if needed
+      if (!configs[industry] || typeof configs[industry] !== 'object') {
+        configs[industry] = { pipelineId: '', stageId: '' };
       }
 
-      container.innerHTML = industries.map((industry, index) => `
-        <div class="industry-pipeline-row" style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px; padding: 12px; background: var(--bg-elevated); border-radius: 8px;">
-          <div style="flex: 1;">
-            <select class="form-select" id="industry-select-${index}" onchange="updateIndustryPipeline(${index}, this.value, null)" style="width: 100%;">
-              <option value="">Select Industry...</option>
-              ${COMMON_INDUSTRIES.map(ind => `
-                <option value="${ind}" ${industry === ind ? 'selected' : ''}>${ind}</option>
-              `).join('')}
-              <option value="${industry}" ${!COMMON_INDUSTRIES.includes(industry) ? 'selected' : ''}>${!COMMON_INDUSTRIES.includes(industry) ? industry : ''}</option>
-            </select>
-          </div>
-          <div style="flex: 1;">
-            <input type="text" class="form-input" id="pipeline-input-${index}"
-              value="${pipelines[industry] || ''}"
-              placeholder="Pipeline ID"
-              onchange="updateIndustryPipeline(${index}, '${industry}', this.value)"
-              style="width: 100%;">
-          </div>
-          <button class="btn-mini btn-outline" onclick="removeIndustryPipeline('${industry}')" style="color: var(--accent-danger); border-color: var(--accent-danger);">
-            Remove
-          </button>
-        </div>
-      `).join('');
-    }
+      if (field === 'pipeline') {
+        configs[industry].pipelineId = value;
+        configs[industry].stageId = ''; // Reset stage when pipeline changes
 
-    function addIndustryPipeline() {
-      // Add a new empty entry
-      const pipelines = state.ghlConfig.industryPipelines || {};
-      const newKey = `New Industry ${Object.keys(pipelines).length + 1}`;
-      pipelines[newKey] = '';
-      state.ghlConfig.industryPipelines = pipelines;
-      renderIndustryPipelines();
-    }
+        // Log the selected pipeline to debug
+        const selectedPipeline = state.ghlPipelines.find(p => p.id === value);
+        console.log('Selected pipeline:', selectedPipeline);
+        console.log('Pipeline stages:', selectedPipeline?.stages);
+      } else if (field === 'stage') {
+        configs[industry].stageId = value;
+      }
 
-    function removeIndustryPipeline(industry) {
-      const pipelines = state.ghlConfig.industryPipelines || {};
-      delete pipelines[industry];
-      state.ghlConfig.industryPipelines = pipelines;
+      // Remove entry if no pipeline selected
+      if (!configs[industry].pipelineId) {
+        delete configs[industry];
+      }
+
+      state.ghlConfig.industryPipelines = configs;
+      console.log('Updated configs:', configs);
+
       saveIndustryPipelines();
       renderIndustryPipelines();
-    }
-
-    async function updateIndustryPipeline(index, industry, pipelineId) {
-      const pipelines = state.ghlConfig.industryPipelines || {};
-      const oldKeys = Object.keys(pipelines);
-      const oldKey = oldKeys[index];
-
-      if (industry && industry !== oldKey) {
-        // Industry name changed - rename key
-        const value = pipelineId !== null ? pipelineId : pipelines[oldKey];
-        delete pipelines[oldKey];
-        pipelines[industry] = value;
-      } else if (pipelineId !== null) {
-        // Pipeline ID changed
-        pipelines[industry || oldKey] = pipelineId;
-      }
-
-      state.ghlConfig.industryPipelines = pipelines;
-      await saveIndustryPipelines();
     }
 
     async function saveIndustryPipelines() {
@@ -3781,11 +4095,25 @@
           throw new Error(data.error || 'Failed to create checkout');
         }
 
-        // Redirect to Airwallex hosted payment page
-        if (data.checkoutUrl) {
-          window.location.href = data.checkoutUrl;
+        // Use Airwallex SDK to redirect to hosted payment page
+        if (data.paymentIntentId && data.clientSecret) {
+          // Initialize Airwallex SDK
+          Airwallex.init({
+            env: 'prod', // production environment
+            origin: window.location.origin
+          });
+
+          // Redirect to hosted payment page
+          Airwallex.redirectToCheckout({
+            intent_id: data.paymentIntentId,
+            client_secret: data.clientSecret,
+            currency: data.currency || 'USD',
+            successUrl: `${window.location.origin}/?payment=success&plan=${planId}`,
+            failUrl: `${window.location.origin}/?payment=failed&plan=${planId}`,
+            cancelUrl: `${window.location.origin}/?payment=cancelled`
+          });
         } else {
-          showToast('error', 'Checkout URL not received');
+          showToast('error', 'Payment setup failed');
         }
       } catch (error) {
         showToast('error', error.message);

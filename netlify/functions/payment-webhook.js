@@ -10,6 +10,11 @@ const AIRWALLEX_WEBHOOK_SECRET = process.env.AIRWALLEX_WEBHOOK_SECRET;
 
 // Plans configuration - Updated pricing 2026
 const PLANS = {
+  trial_start: {
+    leads_limit: 500,
+    trial_days: 7,
+    next_plan: 'basic'
+  },
   basic: {
     leads_limit: 500
   },
@@ -104,6 +109,7 @@ exports.handler = async (event, context) => {
 
 async function handlePaymentSuccess(paymentIntent) {
   console.log('Payment succeeded:', paymentIntent.id);
+  console.log('Payment metadata:', paymentIntent.metadata);
 
   // Find subscription by payment intent ID (stored in stripe_customer_id field)
   const subResult = await pool.query(
@@ -117,11 +123,23 @@ async function handlePaymentSuccess(paymentIntent) {
   }
 
   const { user_id, plan } = subResult.rows[0];
-  const planConfig = PLANS[plan] || PLANS.professional;
+  const planConfig = PLANS[plan] || PLANS.basic;
 
-  // Calculate period end (30 days from now)
-  const periodEnd = new Date();
-  periodEnd.setDate(periodEnd.getDate() + 30);
+  // Calculate period end based on plan type
+  let periodEnd = new Date();
+  let trialEndsAt = null;
+  let userPlan = plan;
+
+  if (planConfig.trial_days) {
+    // This is a trial plan
+    periodEnd.setDate(periodEnd.getDate() + planConfig.trial_days);
+    trialEndsAt = periodEnd;
+    userPlan = 'trial'; // Set user plan to 'trial' during trial period
+    console.log(`Setting up ${planConfig.trial_days}-day trial for user ${user_id}`);
+  } else {
+    // Regular monthly subscription
+    periodEnd.setDate(periodEnd.getDate() + 30);
+  }
 
   // Update subscription to active
   await pool.query(
@@ -134,17 +152,33 @@ async function handlePaymentSuccess(paymentIntent) {
   );
 
   // Update user's plan and leads limit
-  await pool.query(
-    `UPDATE lf_users
-     SET plan = $1,
-         leads_limit = $2,
-         leads_used = 0,
-         updated_at = NOW()
-     WHERE id = $3`,
-    [plan, planConfig.leads_limit, user_id]
-  );
-
-  console.log(`User ${user_id} upgraded to ${plan} plan`);
+  if (trialEndsAt) {
+    // Trial user - set trial_ends_at
+    await pool.query(
+      `UPDATE lf_users
+       SET plan = $1,
+           leads_limit = $2,
+           leads_used = 0,
+           trial_ends_at = $3,
+           updated_at = NOW()
+       WHERE id = $4`,
+      [userPlan, planConfig.leads_limit, trialEndsAt, user_id]
+    );
+    console.log(`User ${user_id} started trial until ${trialEndsAt.toISOString()}`);
+  } else {
+    // Regular subscription
+    await pool.query(
+      `UPDATE lf_users
+       SET plan = $1,
+           leads_limit = $2,
+           leads_used = 0,
+           trial_ends_at = NULL,
+           updated_at = NOW()
+       WHERE id = $3`,
+      [plan, planConfig.leads_limit, user_id]
+    );
+    console.log(`User ${user_id} upgraded to ${plan} plan`);
+  }
 }
 
 async function handlePaymentFailed(paymentIntent) {

@@ -17,6 +17,15 @@ const AIRWALLEX_BASE_URL = process.env.AIRWALLEX_ENV === 'production'
 
 // Plans configuration - Updated pricing 2026
 const PLANS = {
+  trial_start: {
+    name: '7-Day Trial',
+    price: 100, // $1.00 for 7 days
+    currency: 'USD',
+    leads_limit: 500,
+    trial_days: 7,
+    next_plan: 'basic', // Auto-upgrade to basic after trial
+    features: ['Full access for 7 days', '500 leads', 'GHL sync', 'CSV export']
+  },
   basic: {
     name: 'Basic',
     price: 2900, // $29/month in cents
@@ -78,17 +87,20 @@ async function getAirwallexToken() {
   return data.token;
 }
 
-async function createPaymentIntent(accessToken, amount, currency, orderId, customerEmail) {
+async function createPaymentIntent(accessToken, amount, currency, orderId, customerEmail, planId, userId) {
   const payload = {
     request_id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     amount: amount / 100, // Airwallex expects amount in dollars, not cents
     currency: currency,
     merchant_order_id: orderId,
     metadata: {
-      customer_email: customerEmail
+      customer_email: customerEmail,
+      plan_id: planId,
+      user_id: String(userId || ''),
+      source: 'leadforge'
     },
-    return_url: `${process.env.URL || 'https://leadforge-saas.netlify.app'}/payment-success`,
-    descriptor: 'LeadForge AI Subscription'
+    return_url: `${process.env.URL || 'https://leadforge.advancedmarketing.co'}/?payment=success&order=${orderId}`,
+    descriptor: 'LeadForge Subscription'
   };
 
   const response = await fetch(`${AIRWALLEX_BASE_URL}/api/v1/pa/payment_intents/create`, {
@@ -168,8 +180,17 @@ exports.handler = async (event, context) => {
       plan.price,
       plan.currency,
       orderId,
-      userEmail
+      userEmail,
+      planId,
+      dbUserId
     );
+
+    // Calculate trial end date if this is a trial plan
+    let trialEndsAt = null;
+    if (plan.trial_days) {
+      trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + plan.trial_days);
+    }
 
     // Store pending subscription in database
     if (dbUserId) {
@@ -186,11 +207,12 @@ exports.handler = async (event, context) => {
     }
 
     // Build checkout URL for Airwallex Hosted Payment Page
-    const checkoutUrl = `https://checkout.airwallex.com/hosted?` +
+    const env = process.env.AIRWALLEX_ENV === 'production' ? 'prod' : 'demo';
+    const checkoutUrl = `https://checkout.airwallex.com/pci/v2/checkout.html?` +
       `intent_id=${paymentIntent.id}&` +
       `client_secret=${paymentIntent.client_secret}&` +
-      `currency=${plan.currency}&` +
-      `env=${process.env.AIRWALLEX_ENV === 'production' ? 'prod' : 'demo'}`;
+      `mode=payment&` +
+      `env=${env}`;
 
     return {
       statusCode: 200,

@@ -20,7 +20,7 @@ function verifyToken(authHeader) {
   }
 }
 
-async function createGHLContact(apiKey, locationId, lead, pipelineId = null) {
+async function createGHLContact(apiKey, locationId, lead, pipelineId = null, stageId = null) {
   const contactData = {
     firstName: lead.business_name.split(' ')[0] || 'Business',
     lastName: lead.business_name.split(' ').slice(1).join(' ') || 'Owner',
@@ -58,7 +58,7 @@ async function createGHLContact(apiKey, locationId, lead, pipelineId = null) {
   // If we have a pipeline ID, add the contact to the pipeline
   if (pipelineId && contactId) {
     try {
-      await addContactToPipeline(apiKey, contactId, pipelineId);
+      await addContactToPipeline(apiKey, contactId, pipelineId, locationId, stageId);
     } catch (pipelineError) {
       console.error('Failed to add contact to pipeline:', pipelineError.message);
       // Continue even if pipeline assignment fails
@@ -68,7 +68,37 @@ async function createGHLContact(apiKey, locationId, lead, pipelineId = null) {
   return contactResult;
 }
 
-async function addContactToPipeline(apiKey, contactId, pipelineId) {
+async function getFirstStageId(apiKey, pipelineId, locationId) {
+  // Fetch the pipeline to get its stages
+  const response = await fetch(`https://services.leadconnectorhq.com/opportunities/pipelines/${pipelineId}?locationId=${locationId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'Version': '2021-07-28'
+    }
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to fetch pipeline stages: ${error}`);
+  }
+
+  const pipelineData = await response.json();
+  const stages = pipelineData.pipeline?.stages || pipelineData.stages || [];
+
+  if (stages.length === 0) {
+    throw new Error('Pipeline has no stages configured');
+  }
+
+  // Return the first stage ID
+  return stages[0].id;
+}
+
+async function addContactToPipeline(apiKey, contactId, pipelineId, locationId, configuredStageId = null) {
+  // Use configured stageId or fall back to first stage
+  const stageId = configuredStageId || await getFirstStageId(apiKey, pipelineId, locationId);
+
   // Create an opportunity in the pipeline for this contact
   const response = await fetch('https://services.leadconnectorhq.com/opportunities/', {
     method: 'POST',
@@ -79,9 +109,11 @@ async function addContactToPipeline(apiKey, contactId, pipelineId) {
     },
     body: JSON.stringify({
       pipelineId: pipelineId,
+      pipelineStageId: stageId,
       contactId: contactId,
       name: 'LeadForge Lead',
-      status: 'open'
+      status: 'open',
+      locationId: locationId
     })
   });
 
@@ -126,7 +158,7 @@ exports.handler = async (event, context) => {
 
     // Get user's GHL settings
     const settingsResult = await pool.query(
-      'SELECT ghl_api_key, ghl_location_id, ghl_pipeline_id, ghl_industry_pipelines FROM lf_user_settings WHERE user_id = $1',
+      'SELECT ghl_api_key, ghl_location_id, ghl_pipeline_id, ghl_stage_id, ghl_industry_pipelines FROM lf_user_settings WHERE user_id = $1',
       [decoded.userId]
     );
 
@@ -185,18 +217,36 @@ exports.handler = async (event, context) => {
 
     for (const lead of leads) {
       try {
-        // Determine the pipeline ID: industry-specific or default
+        // Determine the pipeline ID and stage ID: industry-specific or default
         let pipelineId = settings.ghl_pipeline_id || null;
+        let stageId = settings.ghl_stage_id || null;
 
-        if (lead.industry && industryPipelines[lead.industry]) {
-          pipelineId = industryPipelines[lead.industry];
+        // Check for industry-specific pipeline (case-insensitive matching)
+        if (lead.industry && Object.keys(industryPipelines).length > 0) {
+          const leadIndustry = lead.industry.toLowerCase().trim();
+          for (const [configuredIndustry, configuredValue] of Object.entries(industryPipelines)) {
+            if (configuredIndustry.toLowerCase().trim() === leadIndustry ||
+                leadIndustry.includes(configuredIndustry.toLowerCase().trim()) ||
+                configuredIndustry.toLowerCase().trim().includes(leadIndustry)) {
+              // Support both old format (string) and new format (object)
+              if (typeof configuredValue === 'object') {
+                pipelineId = configuredValue.pipelineId || null;
+                stageId = configuredValue.stageId || null;
+              } else {
+                pipelineId = configuredValue;
+                stageId = null;
+              }
+              break;
+            }
+          }
         }
 
         const ghlContact = await createGHLContact(
           settings.ghl_api_key,
           settings.ghl_location_id,
           lead,
-          pipelineId
+          pipelineId,
+          stageId
         );
 
         // Update lead as synced

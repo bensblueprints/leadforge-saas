@@ -69,6 +69,13 @@ exports.handler = async (event, context) => {
     `).catch(() => {});
     results.push('Migration: Added ghl_industry_pipelines column');
 
+    // Add ghl_stage_id column for default stage selection
+    await pool.query(`
+      ALTER TABLE lf_user_settings
+      ADD COLUMN IF NOT EXISTS ghl_stage_id VARCHAR(255)
+    `).catch(() => {});
+    results.push('Migration: Added ghl_stage_id column');
+
     // Add trial_ends_at column to lf_users (migration for free trial feature)
     await pool.query(`
       ALTER TABLE lf_users
