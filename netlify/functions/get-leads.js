@@ -47,6 +47,7 @@ exports.handler = async (event, context) => {
     const industry = params.industry;
     const city = params.city;
     const synced = params.synced;
+    const search = params.search;
 
     let query = `
       SELECT id, business_name, phone, email, address, city, state, industry,
@@ -55,6 +56,12 @@ exports.handler = async (event, context) => {
     `;
     const values = [decoded.userId];
     let paramIndex = 2;
+
+    if (search) {
+      query += ` AND (business_name ILIKE $${paramIndex} OR email ILIKE $${paramIndex} OR phone ILIKE $${paramIndex} OR address ILIKE $${paramIndex} OR city ILIKE $${paramIndex} OR state ILIKE $${paramIndex})`;
+      values.push(`%${search}%`);
+      paramIndex++;
+    }
 
     if (industry) {
       query += ` AND industry = $${paramIndex}`;
@@ -74,16 +81,39 @@ exports.handler = async (event, context) => {
       paramIndex++;
     }
 
+    // Build count query with same filters (without LIMIT/OFFSET)
+    let countQuery = 'SELECT COUNT(*) as total FROM lf_leads WHERE user_id = $1';
+    const countValues = [decoded.userId];
+    let countParamIndex = 2;
+
+    if (search) {
+      countQuery += ` AND (business_name ILIKE $${countParamIndex} OR email ILIKE $${countParamIndex} OR phone ILIKE $${countParamIndex} OR address ILIKE $${countParamIndex} OR city ILIKE $${countParamIndex} OR state ILIKE $${countParamIndex})`;
+      countValues.push(`%${search}%`);
+      countParamIndex++;
+    }
+    if (industry) {
+      countQuery += ` AND industry = $${countParamIndex}`;
+      countValues.push(industry);
+      countParamIndex++;
+    }
+    if (city) {
+      countQuery += ` AND city ILIKE $${countParamIndex}`;
+      countValues.push(`%${city}%`);
+      countParamIndex++;
+    }
+    if (synced !== undefined) {
+      countQuery += ` AND ghl_synced = $${countParamIndex}`;
+      countValues.push(synced === 'true');
+      countParamIndex++;
+    }
+
     query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     values.push(limit, offset);
 
-    const result = await pool.query(query, values);
-
-    // Get total count
-    const countResult = await pool.query(
-      'SELECT COUNT(*) as total FROM lf_leads WHERE user_id = $1',
-      [decoded.userId]
-    );
+    const [result, countResult] = await Promise.all([
+      pool.query(query, values),
+      pool.query(countQuery, countValues)
+    ]);
 
     return {
       statusCode: 200,
