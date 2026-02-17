@@ -2487,24 +2487,37 @@
     });
 
     // Check URL params for payment status
-    function checkPaymentStatus() {
+    async function checkPaymentStatus() {
       const urlParams = new URLSearchParams(window.location.search);
       const paymentStatus = urlParams.get('payment');
       const planId = urlParams.get('plan');
       const orderId = urlParams.get('order');
 
       if (paymentStatus === 'success') {
-        // Clear URL params
         window.history.replaceState({}, document.title, window.location.pathname);
-
-        // Show success message
         showToast('success', 'Payment successful! Your plan has been upgraded.');
 
-        // Refresh user data to get updated plan
-        setTimeout(() => {
-          checkAuth();
-          showPage('billing');
-        }, 1000);
+        // Restore auth from localStorage and refresh user data
+        const token = localStorage.getItem('leadforge_token');
+        if (token) {
+          state.token = token;
+          state.user = JSON.parse(localStorage.getItem('leadforge_user') || '{}');
+          try {
+            const statsRes = await fetch(`${API_BASE}/get-stats`, { headers: { 'Authorization': `Bearer ${token}` } });
+            if (statsRes.ok) {
+              const data = await statsRes.json();
+              if (data.user) {
+                state.user = { ...state.user, ...data.user };
+                localStorage.setItem('leadforge_user', JSON.stringify(state.user));
+              }
+            }
+          } catch (e) { /* ignore */ }
+          updateUserUI();
+          loadUserData();
+          checkAdminStatus();
+        }
+        showPage('dashboard');
+        showDashboardView('billing');
       } else if (paymentStatus === 'failed') {
         window.history.replaceState({}, document.title, window.location.pathname);
         showToast('error', 'Payment failed. Please try again.');
@@ -2565,7 +2578,14 @@
     }
 
     function scrollToSection(sectionId) {
-      document.getElementById(sectionId).scrollIntoView({ behavior: 'smooth' });
+      // Features and pricing are on landing - show it first if we're elsewhere
+      const section = document.getElementById(sectionId);
+      if (section && section.closest('#page-landing') && !document.getElementById('page-landing').classList.contains('active')) {
+        showPage('landing');
+      }
+      if (section) {
+        setTimeout(() => section.scrollIntoView({ behavior: 'smooth' }), 100);
+      }
     }
 
     // ===== AUTH =====
@@ -4095,23 +4115,24 @@
           throw new Error(data.error || 'Failed to create checkout');
         }
 
-        // Use Airwallex SDK to redirect to hosted payment page
-        if (data.paymentIntentId && data.clientSecret) {
-          // Initialize Airwallex SDK
-          Airwallex.init({
-            env: 'prod', // production environment
-            origin: window.location.origin
-          });
-
-          // Redirect to hosted payment page
-          Airwallex.redirectToCheckout({
-            intent_id: data.paymentIntentId,
-            client_secret: data.clientSecret,
-            currency: data.currency || 'USD',
-            successUrl: `${window.location.origin}/?payment=success&plan=${planId}`,
-            failUrl: `${window.location.origin}/?payment=failed&plan=${planId}`,
-            cancelUrl: `${window.location.origin}/?payment=cancelled`
-          });
+        // Redirect to Airwallex hosted payment page (most reliable - works without SDK)
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+        } else if (data.paymentIntentId && data.clientSecret && typeof Airwallex !== 'undefined') {
+          // Fallback: use SDK if checkoutUrl not returned
+          try {
+            Airwallex.init({ env: 'prod', origin: window.location.origin });
+            Airwallex.redirectToCheckout({
+              intent_id: data.paymentIntentId,
+              client_secret: data.clientSecret,
+              currency: data.currency || 'USD',
+              successUrl: `${window.location.origin}/?payment=success&plan=${planId}`,
+              failUrl: `${window.location.origin}/?payment=failed&plan=${planId}`,
+              cancelUrl: `${window.location.origin}/?payment=cancelled`
+            });
+          } catch (e) {
+            showToast('error', 'Payment redirect failed. Please try again.');
+          }
         } else {
           showToast('error', 'Payment setup failed');
         }
