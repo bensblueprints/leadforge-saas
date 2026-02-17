@@ -12,8 +12,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'leadforge-secret-key-2024';
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 const SERP_API_KEY = process.env.SERP_API_KEY;
 
-// n8n webhook URL on your NAS server
-const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || 'http://100.122.165.61:5678/webhook/leadforge-scrape';
+// n8n webhook URL - must be publicly reachable from Netlify (no private IPs)
+const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 
 // Helper function to wait (for pagination token to become valid)
 function sleep(ms) {
@@ -311,43 +311,55 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Try n8n webhook first, fall back to direct generation
-    const n8nPayload = {
-      userId: decoded.userId,
-      userEmail: decoded.email,
-      cities: citiesToScrape,
-      industry,
-      maxResults: Math.min(maxResults || 50, 100),
-      callbackUrl: `${process.env.URL || 'https://leadforge-saas.netlify.app'}/.netlify/functions/scrape-callback`
-    };
+    // Prefer direct scraping when API keys are available (works from Netlify)
+    // n8n only works if N8N_WEBHOOK_URL is a PUBLIC URL (Netlify cannot reach private IPs)
+    const hasDirectScraping = !!(GOOGLE_MAPS_API_KEY || SERP_API_KEY);
+    const hasPublicN8n = N8N_WEBHOOK_URL && !N8N_WEBHOOK_URL.match(/^(https?:\/\/)?(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|100\.(6[4-9]|[7-9][0-9]|1[0-2][0-9])\.)/);
 
     let n8nSuccess = false;
-    try {
-      const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(n8nPayload)
-      });
 
-      if (n8nResponse.ok) {
-        n8nSuccess = true;
-        console.log('n8n webhook triggered successfully');
-      } else {
-        console.error('n8n webhook failed:', await n8nResponse.text());
+    if (hasPublicN8n && !hasDirectScraping) {
+      const n8nPayload = {
+        userId: decoded.userId,
+        userEmail: decoded.email,
+        cities: citiesToScrape,
+        industry,
+        maxResults: Math.min(maxResults || 50, 100),
+        callbackUrl: `${process.env.URL || 'https://leadforge-saas.netlify.app'}/.netlify/functions/scrape-callback`
+      };
+      try {
+        const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(n8nPayload)
+        });
+        if (n8nResponse.ok) {
+          n8nSuccess = true;
+          console.log('n8n webhook triggered successfully');
+        } else {
+          console.error('n8n webhook failed:', await n8nResponse.text());
+        }
+      } catch (n8nError) {
+        console.error('n8n connection error:', n8nError.message);
       }
-    } catch (n8nError) {
-      console.error('n8n connection error:', n8nError.message);
+    } else if (hasDirectScraping) {
+      console.log('Using direct scraping (Google Places / SerpAPI)');
+    } else if (!hasPublicN8n && N8N_WEBHOOK_URL) {
+      console.log('N8N_WEBHOOK_URL is private/unreachable from Netlify - using fallback');
     }
 
-    // If n8n failed, try SerpAPI for real leads, then fallback to demo data
+    // If n8n didn't handle it, do direct scraping (real or demo)
     let totalLeadsGenerated = 0;
     let usedRealScraping = false;
 
     if (!n8nSuccess) {
-      console.log('n8n unavailable, trying SerpAPI for real leads...');
+      const scrapeMsg = hasDirectScraping ? 'Scraping with Google Places / SerpAPI...' : 'No API keys - generating demo leads...';
+      console.log(scrapeMsg);
 
       for (const city of citiesToScrape) {
-        // Try to get real leads from SerpAPI
+        let cityLeadCount = 0;
+
+        // Try to get real leads (Google Places first, then SerpAPI)
         const realLeads = await scrapeRealLeads(industry, city, maxResults || 50);
 
         if (realLeads && realLeads.length > 0) {
@@ -356,7 +368,6 @@ exports.handler = async (event, context) => {
 
           for (const lead of realLeads) {
             try {
-              // Check if lead already exists (skip duplicates based on business name and address)
               const existingLead = await pool.query(
                 `SELECT id FROM lf_leads WHERE user_id = $1 AND business_name = $2 AND address = $3`,
                 [decoded.userId, lead.business_name, lead.address]
@@ -372,6 +383,7 @@ exports.handler = async (event, context) => {
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
                 [decoded.userId, lead.business_name, lead.phone, lead.email, lead.address, lead.city, lead.state, industry, lead.website, lead.rating, lead.reviews]
               );
+              cityLeadCount++;
               totalLeadsGenerated++;
             } catch (insertError) {
               if (!insertError.message.includes('duplicate')) {
@@ -381,7 +393,7 @@ exports.handler = async (event, context) => {
           }
         } else {
           // Fallback to demo data (clearly marked as demo)
-          console.log(`No SerpAPI key or API failed, generating demo leads for ${city}`);
+          console.log(`No API keys or API failed - generating demo leads for ${city}`);
           const numLeads = Math.min(maxResults || 50, 15);
           const sanitizedCity = sanitizeForEmail(city);
           const sanitizedIndustry = sanitizeForEmail(industry);
@@ -405,6 +417,7 @@ exports.handler = async (event, context) => {
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
                 [decoded.userId, leadData.business_name, leadData.phone, leadData.email, leadData.address, leadData.city, leadData.state, industry, leadData.website, leadData.rating, leadData.reviews]
               );
+              cityLeadCount++;
               totalLeadsGenerated++;
             } catch (insertError) {
               console.error('Failed to insert lead:', insertError.message);
@@ -412,12 +425,12 @@ exports.handler = async (event, context) => {
           }
         }
 
-        // Record the city as scraped
+        // Record the city as scraped (use per-city count)
         await pool.query(
           `INSERT INTO lf_scraped_cities (user_id, city, industry, lead_count, scraped_at)
            VALUES ($1, $2, $3, $4, NOW())
            ON CONFLICT (user_id, city, industry) DO UPDATE SET lead_count = $4, scraped_at = NOW()`,
-          [decoded.userId, city, industry, totalLeadsGenerated]
+          [decoded.userId, city, industry, cityLeadCount]
         );
       }
 
