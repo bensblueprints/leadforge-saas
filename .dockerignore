@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+.github
+
+# Dependencies
+node_modules
+npm-debug.log
+yarn.lock
+package-lock.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build files
+dist
+build
+.netlify
+
+# Logs
+logs
+*.log
+
+# Documentation
+README.md
+BRAIN.md
+*.md
+
+# Scripts
+scripts/
+deploy-*.sh
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore

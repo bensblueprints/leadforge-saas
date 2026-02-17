@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: leadforge-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-leadforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeMe123!}
+      POSTGRES_DB: ${POSTGRES_DB:-leadforge}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-leadforge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - leadforge-network
+
+  # LeadForge Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: leadforge-app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-leadforge}:${POSTGRES_PASSWORD:-ChangeMe123!}@postgres:5432/${POSTGRES_DB:-leadforge}?sslmode=disable}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-key-in-production}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      GHL_API_KEY: ${GHL_API_KEY}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    networks:
+      - leadforge-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/setup-db', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); });"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  leadforge-network:
+    driver: bridge
