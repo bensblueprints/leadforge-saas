@@ -151,14 +151,12 @@ URL=https://leadforge-saas.netlify.app
 
 ### Data
 - `GET /.netlify/functions/get-stats` - Dashboard statistics
-- `GET /.netlify/functions/get-leads` - Paginated leads list (includes lat, lng, place_id for map)
+- `GET /.netlify/functions/get-leads` - Paginated leads list
 - `GET /.netlify/functions/get-scraped-cities` - Scrape history
 - `GET /.netlify/functions/get-settings` - User settings
-- `POST /.netlify/functions/search-leads` - Search by keyword + location + radius (returns businesses with map pins and status)
 
 ### Actions
-- `POST /.netlify/functions/trigger-scrape` - Start scraping (industry + cities)
-- `POST /.netlify/functions/add-prospects` - Add one or more businesses to prospects (from search results)
+- `POST /.netlify/functions/trigger-scrape` - Start scraping
 - `POST /.netlify/functions/ghl-sync` - Sync to GoHighLevel
 - `POST /.netlify/functions/update-settings` - Save settings
 - `POST /.netlify/functions/create-checkout` - Payment checkout

@@ -84,24 +84,21 @@ async function scrapeWithGooglePlaces(industry, city, maxResults) {
             }
           }
 
-          const loc = place.geometry?.location;
           leads.push({
             business_name: place.name || 'Unknown Business',
             phone: phone,
-            email: '',
+            email: '', // Google doesn't provide emails - will be scraped separately
             address: place.formatted_address || '',
             city: city.split(',')[0].trim(),
             state: extractState(place.formatted_address || ''),
             website: website,
             rating: place.rating || 0,
             reviews: place.user_ratings_total || 0,
-            place_id: place.place_id || '',
-            lat: loc?.lat ?? null,
-            lng: loc?.lng ?? null
+            place_id: place.place_id || ''
           });
         } catch (detailError) {
           console.error('Error processing place:', detailError.message);
-          const loc = place.geometry?.location;
+          // Still add basic info without details
           leads.push({
             business_name: place.name || 'Unknown Business',
             phone: '',
@@ -112,9 +109,7 @@ async function scrapeWithGooglePlaces(industry, city, maxResults) {
             website: '',
             rating: place.rating || 0,
             reviews: place.user_ratings_total || 0,
-            place_id: place.place_id || '',
-            lat: loc?.lat ?? null,
-            lng: loc?.lng ?? null
+            place_id: place.place_id || ''
           });
         }
       }
@@ -159,25 +154,18 @@ async function scrapeWithSerpAPI(industry, city, maxResults) {
     const data = await response.json();
     const places = data.local_results || [];
 
-    return places.slice(0, maxResults).map(place => {
-      const gps = place.gps_coordinates || {};
-      const lat = gps.latitude ?? gps.lat ?? null;
-      const lng = gps.longitude ?? gps.lng ?? null;
-      return {
-        business_name: place.title || 'Unknown Business',
-        phone: place.phone || '',
-        email: '',
-        address: place.address || '',
-        city: city.split(',')[0].trim(),
-        state: extractState(place.address || ''),
-        website: place.website || '',
-        rating: place.rating || 0,
-        reviews: place.reviews || 0,
-        place_id: place.place_id || '',
-        lat,
-        lng
-      };
-    });
+    return places.slice(0, maxResults).map(place => ({
+      business_name: place.title || 'Unknown Business',
+      phone: place.phone || '',
+      email: '',
+      address: place.address || '',
+      city: city.split(',')[0].trim(),
+      state: extractState(place.address || ''),
+      website: place.website || '',
+      rating: place.rating || 0,
+      reviews: place.reviews || 0,
+      place_id: place.place_id || ''
+    }));
   } catch (error) {
     console.error('SerpAPI scrape error:', error.message);
     return null;
@@ -391,9 +379,9 @@ exports.handler = async (event, context) => {
               }
 
               await pool.query(
-                `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews, place_id, lat, lng)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-                [decoded.userId, lead.business_name, lead.phone, lead.email, lead.address, lead.city, lead.state, industry, lead.website, lead.rating, lead.reviews, lead.place_id || null, lead.lat ?? null, lead.lng ?? null]
+                `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [decoded.userId, lead.business_name, lead.phone, lead.email, lead.address, lead.city, lead.state, industry, lead.website, lead.rating, lead.reviews]
               );
               cityLeadCount++;
               totalLeadsGenerated++;
@@ -425,8 +413,8 @@ exports.handler = async (event, context) => {
 
             try {
               await pool.query(
-                `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews, place_id, lat, lng)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NULL, NULL, NULL)`,
+                `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
                 [decoded.userId, leadData.business_name, leadData.phone, leadData.email, leadData.address, leadData.city, leadData.state, industry, leadData.website, leadData.rating, leadData.reviews]
               );
               cityLeadCount++;

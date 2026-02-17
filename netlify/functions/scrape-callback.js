@@ -55,8 +55,8 @@ exports.handler = async (event, context) => {
       for (const lead of leads) {
         try {
           await pool.query(
-            `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews, place_id, lat, lng)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+            `INSERT INTO lf_leads (user_id, business_name, phone, email, address, city, state, industry, website, rating, reviews)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
             [
               userId,
               lead.business_name || lead.name,
@@ -68,10 +68,7 @@ exports.handler = async (event, context) => {
               industry,
               lead.website,
               lead.rating,
-              lead.reviews,
-              lead.place_id || null,
-              lead.lat ?? null,
-              lead.lng ?? null
+              lead.reviews
             ]
           );
           savedCount++;

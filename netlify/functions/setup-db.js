@@ -103,15 +103,6 @@ exports.handler = async (event, context) => {
     `).catch(() => {});
     results.push('Migration: Added updated_at column to lf_leads');
 
-    // Add place_id, lat, lng for map display and status tracking
-    await pool.query(`
-      ALTER TABLE lf_leads
-      ADD COLUMN IF NOT EXISTS place_id VARCHAR(255),
-      ADD COLUMN IF NOT EXISTS lat DECIMAL(10,6),
-      ADD COLUMN IF NOT EXISTS lng DECIMAL(10,6)
-    `).catch(() => {});
-    results.push('Migration: Added place_id, lat, lng to lf_leads');
-
     // Create leads table (no foreign keys)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS lf_leads (
@@ -129,9 +120,6 @@ exports.handler = async (event, context) => {
         reviews INTEGER,
         ghl_synced BOOLEAN DEFAULT false,
         ghl_contact_id VARCHAR(255),
-        place_id VARCHAR(255),
-        lat DECIMAL(10,6),
-        lng DECIMAL(10,6),
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
