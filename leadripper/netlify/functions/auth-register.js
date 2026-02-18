@@ -89,7 +89,7 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({
         success: true,
-        message: 'Account created successfully! You have a 3-day free trial with 500 leads.',
+        message: 'Account created successfully! You have a 7-day free trial with 500 leads.',
         token,
         user: {
           id: user.id,

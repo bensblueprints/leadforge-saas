@@ -92,9 +92,9 @@ exports.handler = async (event, context) => {
 
     // Set Ben as admin by email
     await pool.query(`
-      UPDATE lf_users SET is_admin = true WHERE email = 'ben@justfeatured.com'
+      UPDATE lf_users SET is_admin = true WHERE email IN ('ben@justfeatured.com', 'ben@advancedmarketing.co')
     `).catch(() => {});
-    results.push('Migration: Set ben@justfeatured.com as admin');
+    results.push('Migration: Set ben as admin');
 
     // Add updated_at column to lf_leads (for email scraping tracking)
     await pool.query(`
