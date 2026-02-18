@@ -2382,6 +2382,34 @@
 
     const API_BASE = '/.netlify/functions';
 
+    // ===== AUTH-AWARE FETCH (handles expired tokens) =====
+    async function apiFetch(endpoint, options = {}) {
+      if (!options.headers) options.headers = {};
+      if (state.token) options.headers['Authorization'] = `Bearer ${state.token}`;
+      const res = await fetch(`${API_BASE}${endpoint}`, options);
+      if (res.status === 401 && state.token) {
+        // Token expired - clear session and redirect to login
+        showToast('warning', 'Session expired. Please log in again.');
+        state.token = null;
+        state.user = null;
+        localStorage.removeItem('leadripper_token');
+        showPage('login');
+        return null;
+      }
+      return res;
+    }
+
+    // ===== SETTINGS CACHE (persists API keys across sessions) =====
+    function cacheSettings(settings) {
+      localStorage.setItem('leadripper_settings', JSON.stringify(settings));
+    }
+
+    function getCachedSettings() {
+      try {
+        return JSON.parse(localStorage.getItem('leadripper_settings')) || null;
+      } catch { return null; }
+    }
+
     // ===== INITIALIZATION =====
     document.addEventListener('DOMContentLoaded', () => {
       initParticles();
@@ -2480,11 +2508,49 @@
         state.token = token;
         state.user = JSON.parse(savedUser);
         updateUserUI();
+        // Restore cached settings immediately (before API call)
+        const cached = getCachedSettings();
+        if (cached) applySettingsToUI(cached);
         loadUserData();
         checkAdminStatus();
         checkMasquerade();
         // Navigate to dashboard if user is logged in
         showPage('dashboard');
+      }
+    }
+
+    function applySettingsToUI(settings) {
+      // GHL Configuration
+      if (settings.hasGhlKey) {
+        state.ghlConfig.apiKey = 'configured';
+        state.ghlConfig.locationId = settings.ghl_location_id || '';
+        state.ghlConfig.autoSync = settings.ghl_auto_sync || false;
+        state.ghlConfig.pipelineId = settings.ghl_pipeline_id || '';
+        state.ghlConfig.stageId = settings.ghl_stage_id || '';
+        state.ghlConfig.industryPipelines = settings.ghl_industry_pipelines || {};
+
+        const ghlApiKey = document.getElementById('ghlApiKey');
+        const ghlLocationId = document.getElementById('ghlLocationId');
+        const ghlAutoSync = document.getElementById('ghlAutoSync');
+        const ghlStatus = document.getElementById('ghlStatus');
+
+        if (ghlApiKey) ghlApiKey.value = '••••••••••••••••';
+        if (ghlLocationId) ghlLocationId.value = state.ghlConfig.locationId;
+        if (ghlAutoSync) ghlAutoSync.checked = state.ghlConfig.autoSync;
+        if (ghlStatus) ghlStatus.innerHTML = '<span class="badge badge-success">Connected</span> <span style="color: var(--text-secondary); font-size: 14px;">Ready to sync leads</span>';
+      }
+      // Resend Configuration
+      if (settings.hasResendKey) {
+        state.resendConfig = { apiKey: 'configured' };
+        const resendKeyInput = document.getElementById('resendApiKey');
+        if (resendKeyInput) resendKeyInput.value = '••••••••••••••••';
+        const resendStatus = document.getElementById('resendStatus');
+        if (resendStatus) resendStatus.innerHTML = '<span class="badge badge-success">Connected</span> <span style="color: var(--text-secondary); font-size: 14px;">Ready to send emails</span>';
+      }
+      // Webhook URL
+      if (settings.webhook_url) {
+        const webhookInput = document.getElementById('webhookUrl');
+        if (webhookInput) webhookInput.value = settings.webhook_url;
       }
     }
 
@@ -2664,58 +2730,12 @@
         await loadLeadsPage(1);
 
         // Load user settings for GHL and Resend config
-        const settingsRes = await fetch(`${API_BASE}/get-settings`, {
-          headers: { 'Authorization': `Bearer ${state.token}` }
-        });
-        if (settingsRes.ok) {
+        const settingsRes = await apiFetch('/get-settings');
+        if (settingsRes && settingsRes.ok) {
           const settings = await settingsRes.json();
-
-          // GHL Configuration
-          if (settings.hasGhlKey) {
-            state.ghlConfig.apiKey = 'configured';
-            state.ghlConfig.locationId = settings.ghl_location_id || '';
-            state.ghlConfig.autoSync = settings.ghl_auto_sync || false;
-            state.ghlConfig.pipelineId = settings.ghl_pipeline_id || '';
-            state.ghlConfig.stageId = settings.ghl_stage_id || '';
-
-            // Load industry-specific pipelines (already parsed by backend)
-            state.ghlConfig.industryPipelines = settings.ghl_industry_pipelines || {};
-
-            document.getElementById('ghlApiKey').value = '••••••••••••••••';
-            document.getElementById('ghlLocationId').value = state.ghlConfig.locationId;
-            document.getElementById('ghlAutoSync').checked = state.ghlConfig.autoSync;
-            document.getElementById('ghlStatus').innerHTML = `
-              <span class="badge badge-success">Connected</span>
-              <span style="color: var(--text-secondary); font-size: 14px;">Ready to sync leads</span>
-            `;
-
-            // Render industry pipelines
-            renderIndustryPipelines();
-          }
-
-          // Resend Configuration
-          if (settings.hasResendKey) {
-            state.resendConfig = { apiKey: 'configured' };
-            const resendKeyInput = document.getElementById('resendApiKey');
-            if (resendKeyInput) {
-              resendKeyInput.value = '••••••••••••••••';
-            }
-            const resendStatus = document.getElementById('resendStatus');
-            if (resendStatus) {
-              resendStatus.innerHTML = `
-                <span class="badge badge-success">Connected</span>
-                <span style="color: var(--text-secondary); font-size: 14px;">Ready to send emails</span>
-              `;
-            }
-          }
-
-          // Webhook URL
-          if (settings.webhook_url) {
-            const webhookInput = document.getElementById('webhookUrl');
-            if (webhookInput) {
-              webhookInput.value = settings.webhook_url;
-            }
-          }
+          cacheSettings(settings);
+          applySettingsToUI(settings);
+          if (settings.hasGhlKey) renderIndustryPipelines();
         }
       } catch (err) {
         console.error('Failed to load user data:', err);

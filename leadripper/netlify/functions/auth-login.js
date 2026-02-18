@@ -80,7 +80,7 @@ exports.handler = async (event, context) => {
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '365d' }
     );
 
     // Check trial status
